@@ -65,7 +65,7 @@ const MobileVideoPlayer = () => {
     6: { 
       scrubDirection: 'vertical', 
       startPosition: 'beginning',
-      transitions: { beginning: 5 }
+      transitions: { beginning: 5, end: 7 }
     },
     7: { 
       scrubDirection: 'horizontal', 
