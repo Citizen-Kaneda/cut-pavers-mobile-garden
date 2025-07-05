@@ -219,6 +219,28 @@ const MobileVideoPlayer = () => {
       }
     }
     
+    // Handle generic vertical navigation for videos with beginning/end transitions
+    const config = videoConfig[currentVideoIndex as keyof typeof videoConfig];
+    const transitions = config.transitions as any;
+    
+    if (currentVideoIndex !== 0 && currentVideoIndex !== 1 && currentVideoIndex !== 7 && currentVideoIndex !== 8) {
+      if (config.scrubDirection === 'vertical' && isValidSwipeY) {
+        if (deltaY < 0) {
+          // Swipe up - check if we have a 'beginning' transition
+          if (transitions.beginning !== undefined) {
+            setCurrentVideoIndex(transitions.beginning);
+            return;
+          }
+        } else {
+          // Swipe down - check if we have an 'end' transition  
+          if (transitions.end !== undefined) {
+            setCurrentVideoIndex(transitions.end);
+            return;
+          }
+        }
+      }
+    }
+    
     // Handle pano-7 horizontal swipe back to pano-1
     if (currentVideoIndex === 7 && isValidSwipeX && deltaX < 0) {
       setCurrentVideoIndex(1);
