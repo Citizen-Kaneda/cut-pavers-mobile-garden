@@ -160,9 +160,9 @@ const MobileVideoPlayer = () => {
     
     video.currentTime = newTime;
     
-    // Check for seamless transitions at video boundaries
-    checkSeamlessTransition(video, newTime);
-  }, [currentVideoIndex, firstVideoIntroPlayed, checkSeamlessTransition]);
+    // Don't check for seamless transitions during tilt scrubbing
+    // Transitions should only happen through swipe gestures
+  }, [currentVideoIndex, firstVideoIntroPlayed]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (!isDragging || !allVideosLoaded) return;
