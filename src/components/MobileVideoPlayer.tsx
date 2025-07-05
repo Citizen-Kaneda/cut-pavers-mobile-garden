@@ -242,7 +242,7 @@ const MobileVideoPlayer = () => {
     }
     
     // Handle pano-7 horizontal swipe back to pano-1
-    if (currentVideoIndex === 7 && isValidSwipeX && deltaX > 0) {
+    if (currentVideoIndex === 7 && isValidSwipeX && deltaX < 0) {
       setCurrentVideoIndex(1);
       return;
     }
