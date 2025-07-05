@@ -82,17 +82,8 @@ const MobileVideoPlayer = () => {
   // Update film strip position
   const updateFilmStripPosition = useCallback(() => {
     if (filmStripRef.current) {
-      // Special handling for pano-1 and pano-8 horizontal transition
-      if (currentVideoIndex === 1 || currentVideoIndex === 8) {
-        // Position pano-1 and pano-8 side by side horizontally
-        const translateX = currentVideoIndex === 1 ? 0 : -100;
-        const translateY = -100; // Position at pano-1's vertical level
-        filmStripRef.current.style.transform = `translateY(${translateY}vh) translateX(${translateX}vw)`;
-      } else {
-        // Normal vertical positioning for other videos, reset horizontal position
-        const translateY = -currentVideoIndex * 100;
-        filmStripRef.current.style.transform = `translateY(${translateY}vh) translateX(0vw)`;
-      }
+      const translateY = -currentVideoIndex * 100;
+      filmStripRef.current.style.transform = `translateY(${translateY}vh)`;
     }
   }, [currentVideoIndex]);
 
@@ -436,7 +427,6 @@ const MobileVideoPlayer = () => {
           className="absolute inset-0 transition-transform duration-300 ease-out"
           style={{
             height: `${videos.length * 100}vh`,
-            width: '200vw', // Extended width to accommodate horizontal pano-1/pano-8 layout
             willChange: 'transform',
             transform: 'translateZ(0)',
             backfaceVisibility: 'hidden',
@@ -447,13 +437,7 @@ const MobileVideoPlayer = () => {
             <div 
               key={index}
               className="w-full h-screen flex-shrink-0"
-              style={{ 
-                height: '100vh',
-                // Position pano-8 horizontally next to pano-1
-                position: index === 8 ? 'absolute' : 'relative',
-                left: index === 8 ? '100vw' : 'auto',
-                top: index === 8 ? '-100vh' : 'auto'
-              }}
+              style={{ height: '100vh' }}
             >
               <video
                 ref={el => videoRefs.current[index] = el}
