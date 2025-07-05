@@ -154,8 +154,8 @@ const MobileVideoPlayer = () => {
     const isCorrectDirection = (config.scrubDirection === 'vertical') === isVertical;
     if (!isCorrectDirection) return;
     
-    // Map 30 degrees of tilt to full video duration
-    const maxTiltDegrees = 30;
+    // Map tilt degrees to full video duration (15 degrees for pano-8, 30 for others)
+    const maxTiltDegrees = currentVideoIndex === 8 ? 15 : 30;
     const clampedTilt = Math.max(-maxTiltDegrees, Math.min(maxTiltDegrees, tiltDegrees));
     const tiltProgress = (clampedTilt + maxTiltDegrees) / (maxTiltDegrees * 2); // 0 to 1
     
