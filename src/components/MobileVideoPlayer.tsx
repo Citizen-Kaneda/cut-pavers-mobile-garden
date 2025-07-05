@@ -8,8 +8,8 @@ const MobileVideoPlayer = () => {
   const [touchStart, setTouchStart] = useState({ x: 0, y: 0, time: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [firstVideoIntroPlayed, setFirstVideoIntroPlayed] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [nextVideoIndex, setNextVideoIndex] = useState<number | null>(null);
+  const [slideOffset, setSlideOffset] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
   const lastMoveTime = useRef(0);
   const animationFrame = useRef<number>();
   const velocity = useRef({ x: 0, y: 0 });
@@ -140,21 +140,21 @@ const MobileVideoPlayer = () => {
       
       if (direction && currentVideoIndex < videos.length - 1) {
         // Swipe up or fast upward velocity - next video
-        setIsTransitioning(true);
-        setNextVideoIndex(currentVideoIndex + 1);
+        setIsAnimating(true);
+        setSlideOffset(-100);
         setTimeout(() => {
           setCurrentVideoIndex(currentVideoIndex + 1);
-          setIsTransitioning(false);
-          setNextVideoIndex(null);
+          setSlideOffset(0);
+          setIsAnimating(false);
         }, 300);
       } else if (!direction && currentVideoIndex > 0) {
         // Swipe down or fast downward velocity - previous video
-        setIsTransitioning(true);
-        setNextVideoIndex(currentVideoIndex - 1);
+        setIsAnimating(true);
+        setSlideOffset(100);
         setTimeout(() => {
           setCurrentVideoIndex(currentVideoIndex - 1);
-          setIsTransitioning(false);
-          setNextVideoIndex(null);
+          setSlideOffset(0);
+          setIsAnimating(false);
         }, 300);
       }
     }
@@ -228,50 +228,76 @@ const MobileVideoPlayer = () => {
           WebkitBackfaceVisibility: 'hidden'
         }}
       >
-        {/* Current video */}
-        <video
-          ref={videoRef}
-          src={videos[currentVideoIndex]}
-          className={cn(
-            "w-full h-full object-contain object-top absolute inset-0 transition-transform duration-300 ease-out",
-            isTransitioning && nextVideoIndex !== null && nextVideoIndex > currentVideoIndex 
-              ? "-translate-y-full" 
-              : isTransitioning && nextVideoIndex !== null && nextVideoIndex < currentVideoIndex
-              ? "translate-y-full"
-              : "translate-y-0"
-          )}
-          muted
-          playsInline
-          preload="auto"
-          style={{ 
-            touchAction: 'none',
-            willChange: 'transform',
-            transform: 'translateZ(0)',
-            backfaceVisibility: 'hidden',
-            WebkitBackfaceVisibility: 'hidden'
+        {/* Video container with sliding animation */}
+        <div 
+          className="absolute inset-0 transition-transform duration-300 ease-out"
+          style={{
+            transform: `translateY(${slideOffset}%)`,
           }}
-        />
-        
-        {/* Next video during transition */}
-        {isTransitioning && nextVideoIndex !== null && (
+        >
           <video
-            src={videos[nextVideoIndex]}
-            className={cn(
-              "w-full h-full object-contain object-top absolute inset-0 transition-transform duration-300 ease-out",
-              nextVideoIndex > currentVideoIndex 
-                ? "translate-y-full" 
-                : "-translate-y-full"
-            )}
+            ref={videoRef}
+            src={videos[currentVideoIndex]}
+            className="w-full h-full object-contain object-top"
             muted
             playsInline
             preload="auto"
             style={{ 
               touchAction: 'none',
               willChange: 'transform',
+              transform: 'translateZ(0)',
               backfaceVisibility: 'hidden',
               WebkitBackfaceVisibility: 'hidden'
             }}
           />
+        </div>
+        
+        {/* Next video (when sliding up) */}
+        {isAnimating && slideOffset < 0 && currentVideoIndex < videos.length - 1 && (
+          <div 
+            className="absolute inset-0 transition-transform duration-300 ease-out"
+            style={{
+              transform: `translateY(${slideOffset + 100}%)`,
+            }}
+          >
+            <video
+              src={videos[currentVideoIndex + 1]}
+              className="w-full h-full object-contain object-top"
+              muted
+              playsInline
+              preload="auto"
+              style={{ 
+                touchAction: 'none',
+                willChange: 'transform',
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden'
+              }}
+            />
+          </div>
+        )}
+        
+        {/* Previous video (when sliding down) */}
+        {isAnimating && slideOffset > 0 && currentVideoIndex > 0 && (
+          <div 
+            className="absolute inset-0 transition-transform duration-300 ease-out"
+            style={{
+              transform: `translateY(${slideOffset - 100}%)`,
+            }}
+          >
+            <video
+              src={videos[currentVideoIndex - 1]}
+              className="w-full h-full object-contain object-top"
+              muted
+              playsInline
+              preload="auto"
+              style={{ 
+                touchAction: 'none',
+                willChange: 'transform',
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden'
+              }}
+            />
+          </div>
         )}
         
         {/* Video indicator */}
