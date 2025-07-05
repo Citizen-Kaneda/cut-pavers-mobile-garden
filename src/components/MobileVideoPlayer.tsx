@@ -262,8 +262,9 @@ const MobileVideoPlayer = () => {
               transform: isAnimating && slideOffset < 0 
                 ? `translateY(${100 + slideOffset}%)` 
                 : 'translateY(100%)',
-              visibility: isAnimating && slideOffset < 0 ? 'visible' : 'hidden',
-              zIndex: isAnimating && slideOffset < 0 ? 15 : 5
+              opacity: isAnimating && slideOffset < 0 ? 1 : 0,
+              zIndex: isAnimating && slideOffset < 0 ? 15 : 5,
+              pointerEvents: isAnimating && slideOffset < 0 ? 'auto' : 'none'
             }}
           >
             <video
@@ -290,8 +291,9 @@ const MobileVideoPlayer = () => {
               transform: isAnimating && slideOffset > 0 
                 ? `translateY(${-100 + slideOffset}%)` 
                 : 'translateY(-100%)',
-              visibility: isAnimating && slideOffset > 0 ? 'visible' : 'hidden',
-              zIndex: isAnimating && slideOffset > 0 ? 15 : 5
+              opacity: isAnimating && slideOffset > 0 ? 1 : 0,
+              zIndex: isAnimating && slideOffset > 0 ? 15 : 5,
+              pointerEvents: isAnimating && slideOffset > 0 ? 'auto' : 'none'
             }}
           >
             <video
