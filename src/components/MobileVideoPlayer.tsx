@@ -27,6 +27,56 @@ const MobileVideoPlayer = () => {
     '/pano-8.mp4'
   ];
 
+  // Video configuration for navigation and scrubbing
+  const videoConfig = {
+    0: { 
+      scrubDirection: 'vertical', 
+      startPosition: 'beginning',
+      transitions: { end: 1 }
+    },
+    1: { 
+      scrubDirection: 'horizontal', 
+      startPosition: 'middle',
+      transitions: { up: 0, down: 2, left: 7, right: 8 },
+      transitionPositions: { up: 'end' }
+    },
+    2: { 
+      scrubDirection: 'vertical', 
+      startPosition: 'beginning',
+      transitions: { beginning: 1, end: 3 }
+    },
+    3: { 
+      scrubDirection: 'vertical', 
+      startPosition: 'beginning',
+      transitions: { beginning: 2, end: 4 }
+    },
+    4: { 
+      scrubDirection: 'vertical', 
+      startPosition: 'beginning',
+      transitions: { beginning: 3, end: 5 }
+    },
+    5: { 
+      scrubDirection: 'vertical', 
+      startPosition: 'beginning',
+      transitions: { beginning: 4, end: 6 }
+    },
+    6: { 
+      scrubDirection: 'vertical', 
+      startPosition: 'beginning',
+      transitions: {}
+    },
+    7: { 
+      scrubDirection: 'horizontal', 
+      startPosition: 'beginning',
+      transitions: { beginning: 1 }
+    },
+    8: { 
+      scrubDirection: 'horizontal', 
+      startPosition: 'end',
+      transitions: { beginning: 1 }
+    }
+  };
+
   // Update film strip position
   const updateFilmStripPosition = useCallback(() => {
     if (filmStripRef.current) {
@@ -53,18 +103,63 @@ const MobileVideoPlayer = () => {
     setIsDragging(true);
   }, []);
 
-  const updateVideoTime = useCallback((deltaX: number) => {
+  const checkSeamlessTransition = useCallback((video: HTMLVideoElement, currentTime: number) => {
+    const config = videoConfig[currentVideoIndex as keyof typeof videoConfig];
+    const threshold = 0.1; // seconds from start/end to trigger transition
+    
+    // Check if at beginning and should transition
+    if (currentTime <= threshold && 'beginning' in config.transitions && config.transitions.beginning !== undefined) {
+      const targetVideoIndex = config.transitions.beginning;
+      const targetVideo = videoRefs.current[targetVideoIndex];
+      if (targetVideo) {
+        setCurrentVideoIndex(targetVideoIndex);
+        // Set target video to appropriate position
+        const targetConfig = videoConfig[targetVideoIndex as keyof typeof videoConfig];
+        if (targetConfig.startPosition === 'end') {
+          targetVideo.currentTime = targetVideo.duration - threshold;
+        } else if (targetConfig.startPosition === 'middle') {
+          targetVideo.currentTime = targetVideo.duration / 2;
+        }
+      }
+    }
+    
+    // Check if at end and should transition
+    if (currentTime >= video.duration - threshold && 'end' in config.transitions && config.transitions.end !== undefined) {
+      const targetVideoIndex = config.transitions.end;
+      const targetVideo = videoRefs.current[targetVideoIndex];
+      if (targetVideo) {
+        setCurrentVideoIndex(targetVideoIndex);
+        // Set target video to appropriate position
+        const targetConfig = videoConfig[targetVideoIndex as keyof typeof videoConfig];
+        if (targetConfig.startPosition === 'middle') {
+          targetVideo.currentTime = targetVideo.duration / 2;
+        } else {
+          targetVideo.currentTime = 0;
+        }
+      }
+    }
+  }, [currentVideoIndex]);
+
+  const updateVideoTime = useCallback((delta: number, isVertical: boolean = false) => {
     const video = videoRefs.current[currentVideoIndex];
     if (!video || !video.duration || isNaN(video.duration)) return;
     
-    const sensitivity = video.duration / (window.innerWidth * 1.5);
-    const timeChange = deltaX * sensitivity;
+    const config = videoConfig[currentVideoIndex as keyof typeof videoConfig];
+    const isCorrectDirection = (config.scrubDirection === 'vertical') === isVertical;
+    if (!isCorrectDirection) return;
+    
+    const screenSize = isVertical ? window.innerHeight : window.innerWidth;
+    const sensitivity = video.duration / (screenSize * 1.5);
+    const timeChange = delta * sensitivity;
     
     const minTime = (currentVideoIndex === 0 && firstVideoIntroPlayed) ? 5 : 0;
     const newTime = Math.max(minTime, Math.min(video.duration, video.currentTime + timeChange));
     
     video.currentTime = newTime;
-  }, [currentVideoIndex, firstVideoIntroPlayed]);
+    
+    // Check for seamless transitions at video boundaries
+    checkSeamlessTransition(video, newTime);
+  }, [currentVideoIndex, firstVideoIntroPlayed, checkSeamlessTransition]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (!isDragging || !allVideosLoaded) return;
@@ -87,10 +182,21 @@ const MobileVideoPlayer = () => {
     if (now - lastMoveTime.current < 8) return;
     lastMoveTime.current = now;
     
-    // Horizontal scrubbing
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 5) {
+    const config = videoConfig[currentVideoIndex as keyof typeof videoConfig];
+    
+    // Handle scrubbing based on video configuration
+    if (config.scrubDirection === 'horizontal' && Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 5) {
       const incrementalDelta = moveTouch.clientX - lastTouch.current.x;
-      updateVideoTime(incrementalDelta);
+      updateVideoTime(incrementalDelta, false);
+      
+      setTouchStart(prev => ({ 
+        ...prev, 
+        x: moveTouch.clientX, 
+        y: moveTouch.clientY 
+      }));
+    } else if (config.scrubDirection === 'vertical' && Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 5) {
+      const incrementalDelta = moveTouch.clientY - lastTouch.current.y;
+      updateVideoTime(-incrementalDelta, true); // Negative for natural up/down feel
       
       setTouchStart(prev => ({ 
         ...prev, 
@@ -100,7 +206,7 @@ const MobileVideoPlayer = () => {
     }
     
     lastTouch.current = { x: moveTouch.clientX, y: moveTouch.clientY, time: now };
-  }, [isDragging, touchStart, updateVideoTime, allVideosLoaded]);
+  }, [isDragging, touchStart, updateVideoTime, allVideosLoaded, currentVideoIndex]);
 
   const handleTouchEnd = useCallback((e: TouchEvent) => {
     if (!isDragging || !allVideosLoaded) return;
@@ -114,24 +220,52 @@ const MobileVideoPlayer = () => {
     const minSwipeDistance = 50;
     const maxSwipeTime = 800;
     
+    const absVelocityX = Math.abs(velocity.current.x);
     const absVelocityY = Math.abs(velocity.current.y);
-    const isValidSwipe = (deltaTime < maxSwipeTime && Math.abs(deltaY) > minSwipeDistance) || 
-                        absVelocityY > velocityThreshold;
+    const isValidSwipeX = (deltaTime < maxSwipeTime && Math.abs(deltaX) > minSwipeDistance) || 
+                          absVelocityX > velocityThreshold;
+    const isValidSwipeY = (deltaTime < maxSwipeTime && Math.abs(deltaY) > minSwipeDistance) || 
+                          absVelocityY > velocityThreshold;
     
-    // Vertical swipe for video cycling
-    if (Math.abs(deltaY) > Math.abs(deltaX) && isValidSwipe) {
-      const direction = deltaY < 0 || velocity.current.y < -velocityThreshold;
+    // Handle pano-1's four-directional navigation
+    if (currentVideoIndex === 1) {
+      const pano1Transitions = videoConfig[1].transitions as { up: number; down: number; left: number; right: number };
       
-      if (direction && currentVideoIndex < videos.length - 1) {
-        setCurrentVideoIndex(currentVideoIndex + 1);
-      } else if (!direction && currentVideoIndex > 0) {
-        setCurrentVideoIndex(currentVideoIndex - 1);
+      if (Math.abs(deltaY) > Math.abs(deltaX) && isValidSwipeY) {
+        // Vertical swipe
+        const direction = deltaY < 0 || velocity.current.y < -velocityThreshold;
+        const targetIndex = direction ? pano1Transitions.up : pano1Transitions.down;
+        setCurrentVideoIndex(targetIndex);
+      } else if (Math.abs(deltaX) > Math.abs(deltaY) && isValidSwipeX) {
+        // Horizontal swipe
+        const direction = deltaX > 0 || velocity.current.x > velocityThreshold;
+        const targetIndex = direction ? pano1Transitions.right : pano1Transitions.left;
+        setCurrentVideoIndex(targetIndex);
       }
     }
     
     setIsDragging(false);
     velocity.current = { x: 0, y: 0 };
-  }, [isDragging, touchStart, currentVideoIndex, videos.length, allVideosLoaded]);
+  }, [isDragging, touchStart, currentVideoIndex, allVideosLoaded]);
+
+  // Initialize video positions when switching
+  useEffect(() => {
+    if (!allVideosLoaded) return;
+    
+    const video = videoRefs.current[currentVideoIndex];
+    if (!video || !video.duration) return;
+    
+    const config = videoConfig[currentVideoIndex as keyof typeof videoConfig];
+    
+    // Set initial position based on config
+    if (config.startPosition === 'middle') {
+      video.currentTime = video.duration / 2;
+    } else if (config.startPosition === 'end') {
+      video.currentTime = video.duration - 0.1;
+    } else {
+      video.currentTime = 0;
+    }
+  }, [currentVideoIndex, allVideosLoaded]);
 
   useEffect(() => {
     const container = containerRef.current;
