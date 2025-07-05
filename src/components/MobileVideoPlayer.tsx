@@ -9,7 +9,9 @@ const MobileVideoPlayer = () => {
   const [isDragging, setIsDragging] = useState(false);
 
   const videos = [
-    '/pano-2.mp4', // Starting with available videos (pano-0 and pano-1 not found in public folder)
+    '/pano-0.mp4',
+    '/pano-1.mp4',
+    '/pano-2.mp4',
     '/pano-3.mp4', 
     '/pano-4.mp4',
     '/pano-5.mp4',
