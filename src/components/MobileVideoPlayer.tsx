@@ -10,6 +10,10 @@ const MobileVideoPlayer = () => {
   const [firstVideoIntroPlayed, setFirstVideoIntroPlayed] = useState(false);
   const [loadedVideos, setLoadedVideos] = useState<Set<number>>(new Set());
   const [allVideosLoaded, setAllVideosLoaded] = useState(false);
+  const [currentKeyframe, setCurrentKeyframe] = useState(0);
+  
+  // Keyframes between 5-7 seconds for pano-0
+  const keyframes = [5.0, 5.5, 6.0, 6.5, 7.0];
   
   const lastMoveTime = useRef(0);
   const velocity = useRef({ x: 0, y: 0 });
@@ -62,10 +66,20 @@ const MobileVideoPlayer = () => {
     const timeChange = deltaX * sensitivity;
     
     const minTime = (currentVideoIndex === 0 && firstVideoIntroPlayed) ? 5 : 0;
-    const newTime = Math.max(minTime, Math.min(video.duration, video.currentTime + timeChange));
+    let newTime = Math.max(minTime, Math.min(video.duration, video.currentTime + timeChange));
+    
+    // Snap to keyframes for pano-0 between 5-7 seconds
+    if (currentVideoIndex === 0 && newTime >= 5 && newTime <= 7) {
+      const closestKeyframe = keyframes.reduce((prev, curr) => 
+        Math.abs(curr - newTime) < Math.abs(prev - newTime) ? curr : prev
+      );
+      if (Math.abs(closestKeyframe - newTime) < 0.3) {
+        newTime = closestKeyframe;
+      }
+    }
     
     video.currentTime = newTime;
-  }, [currentVideoIndex, firstVideoIntroPlayed]);
+  }, [currentVideoIndex, firstVideoIntroPlayed, keyframes]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (!isDragging || !allVideosLoaded) return;
@@ -167,9 +181,26 @@ const MobileVideoPlayer = () => {
     const firstVideo = videoRefs.current[0];
     if (firstVideo && currentVideoIndex === 0) {
       const handleTimeUpdate = () => {
-        if (firstVideo.currentTime >= 5) {
+        const currentTime = firstVideo.currentTime;
+        
+        // Check if we've reached a keyframe
+        const nextKeyframe = keyframes.find(kf => kf > currentTime && Math.abs(kf - currentTime) < 0.1);
+        if (nextKeyframe) {
           firstVideo.pause();
-          setFirstVideoIntroPlayed(true);
+          firstVideo.currentTime = nextKeyframe;
+          setCurrentKeyframe(keyframes.indexOf(nextKeyframe));
+          
+          // Auto-resume after 1 second at each keyframe, except the last one
+          if (nextKeyframe < 7.0) {
+            setTimeout(() => {
+              if (firstVideo.paused) {
+                firstVideo.play().catch(console.error);
+              }
+            }, 1000);
+          } else {
+            // At the final keyframe, mark intro as played
+            setFirstVideoIntroPlayed(true);
+          }
         }
       };
 
@@ -181,7 +212,7 @@ const MobileVideoPlayer = () => {
         firstVideo.removeEventListener('timeupdate', handleTimeUpdate);
       };
     }
-  }, [allVideosLoaded, currentVideoIndex]);
+  }, [allVideosLoaded, currentVideoIndex, keyframes]);
 
   return (
     <div className="min-h-screen w-full" style={{ backgroundColor: '#e0e1b9' }}>
