@@ -10,10 +10,13 @@ const MobileVideoPlayer = () => {
   const [firstVideoIntroPlayed, setFirstVideoIntroPlayed] = useState(false);
   const [slideOffset, setSlideOffset] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [loadedVideos, setLoadedVideos] = useState<Set<number>>(new Set([0]));
   const lastMoveTime = useRef(0);
   const animationFrame = useRef<number>();
   const velocity = useRef({ x: 0, y: 0 });
   const lastTouch = useRef({ x: 0, y: 0, time: 0 });
+  const nextVideoRef = useRef<HTMLVideoElement>(null);
+  const prevVideoRef = useRef<HTMLVideoElement>(null);
 
   const videos = [
     '/pano-0.mp4?v=3',
@@ -138,8 +141,8 @@ const MobileVideoPlayer = () => {
     if (Math.abs(deltaY) > Math.abs(deltaX) && isValidSwipe) {
       const direction = deltaY < 0 || velocity.current.y < -velocityThreshold;
       
-      if (direction && currentVideoIndex < videos.length - 1) {
-        // Swipe up or fast upward velocity - next video
+      if (direction && currentVideoIndex < videos.length - 1 && loadedVideos.has(currentVideoIndex + 1)) {
+        // Swipe up or fast upward velocity - next video (only if loaded)
         setIsAnimating(true);
         setSlideOffset(-100);
         setTimeout(() => {
@@ -147,8 +150,8 @@ const MobileVideoPlayer = () => {
           setSlideOffset(0);
           setIsAnimating(false);
         }, 300);
-      } else if (!direction && currentVideoIndex > 0) {
-        // Swipe down or fast downward velocity - previous video
+      } else if (!direction && currentVideoIndex > 0 && loadedVideos.has(currentVideoIndex - 1)) {
+        // Swipe down or fast downward velocity - previous video (only if loaded)
         setIsAnimating(true);
         setSlideOffset(100);
         setTimeout(() => {
@@ -161,7 +164,7 @@ const MobileVideoPlayer = () => {
     
     setIsDragging(false);
     velocity.current = { x: 0, y: 0 };
-  }, [isDragging, touchStart, currentVideoIndex, videos.length]);
+  }, [isDragging, touchStart, currentVideoIndex, videos.length, loadedVideos]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -268,11 +271,16 @@ const MobileVideoPlayer = () => {
             }}
           >
             <video
+              ref={nextVideoRef}
               src={videos[currentVideoIndex + 1]}
               className="w-full h-full object-contain object-top"
               muted
               playsInline
               preload="auto"
+              onLoadedData={() => {
+                setLoadedVideos(prev => new Set([...prev, currentVideoIndex + 1]));
+                console.log('Next video loaded:', currentVideoIndex + 1);
+              }}
               style={{ 
                 touchAction: 'none',
                 willChange: 'transform',
@@ -297,11 +305,16 @@ const MobileVideoPlayer = () => {
             }}
           >
             <video
+              ref={prevVideoRef}
               src={videos[currentVideoIndex - 1]}
               className="w-full h-full object-contain object-top"
               muted
               playsInline
               preload="auto"
+              onLoadedData={() => {
+                setLoadedVideos(prev => new Set([...prev, currentVideoIndex - 1]));
+                console.log('Previous video loaded:', currentVideoIndex - 1);
+              }}
               style={{ 
                 touchAction: 'none',
                 willChange: 'transform',
