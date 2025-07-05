@@ -82,8 +82,21 @@ const MobileVideoPlayer = () => {
   // Update film strip position
   const updateFilmStripPosition = useCallback(() => {
     if (filmStripRef.current) {
-      const translateY = -currentVideoIndex * 100;
-      filmStripRef.current.style.transform = `translateY(${translateY}vh)`;
+      // Special positioning for pano-1, 7, 8 (horizontal layout)
+      if (currentVideoIndex === 1) {
+        // pano-1 is at center
+        filmStripRef.current.style.transform = `translateY(-100vh) translateX(0)`;
+      } else if (currentVideoIndex === 7) {
+        // pano-7 is to the left of pano-1
+        filmStripRef.current.style.transform = `translateY(-100vh) translateX(100vw)`;
+      } else if (currentVideoIndex === 8) {
+        // pano-8 is to the right of pano-1
+        filmStripRef.current.style.transform = `translateY(-100vh) translateX(-100vw)`;
+      } else {
+        // All other videos use normal vertical positioning
+        const translateY = -currentVideoIndex * 100;
+        filmStripRef.current.style.transform = `translateY(${translateY}vh)`;
+      }
     }
   }, [currentVideoIndex]);
 
@@ -433,12 +446,37 @@ const MobileVideoPlayer = () => {
             WebkitBackfaceVisibility: 'hidden'
           }}
         >
-          {videos.map((videoSrc, index) => (
-            <div 
-              key={index}
-              className="w-full h-screen flex-shrink-0"
-              style={{ height: '100vh' }}
-            >
+          {videos.map((videoSrc, index) => {
+            // Position pano-7 and pano-8 horizontally relative to pano-1
+            let positioning = {};
+            if (index === 7) {
+              // pano-7 to the left of pano-1's position
+              positioning = { 
+                position: 'absolute' as const,
+                top: '100vh',
+                left: '-100vw',
+                width: '100vw',
+                height: '100vh'
+              };
+            } else if (index === 8) {
+              // pano-8 to the right of pano-1's position  
+              positioning = { 
+                position: 'absolute' as const,
+                top: '100vh',
+                left: '100vw',
+                width: '100vw',
+                height: '100vh'
+              };
+            } else {
+              positioning = { height: '100vh' };
+            }
+            
+            return (
+              <div 
+                key={index}
+                className="w-full h-screen flex-shrink-0"
+                style={positioning}
+              >
               <video
                 ref={el => videoRefs.current[index] = el}
                 src={videoSrc}
@@ -456,8 +494,9 @@ const MobileVideoPlayer = () => {
                   WebkitBackfaceVisibility: 'hidden'
                 }}
               />
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
         
         {/* Loading indicator */}
