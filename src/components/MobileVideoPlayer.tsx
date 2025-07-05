@@ -252,12 +252,15 @@ const MobileVideoPlayer = () => {
           />
         </div>
         
-        {/* Next video (when sliding up) */}
-        {isAnimating && slideOffset < 0 && currentVideoIndex < videos.length - 1 && (
+        {/* Next video - always preloaded but hidden */}
+        {currentVideoIndex < videos.length - 1 && (
           <div 
             className="absolute inset-0 transition-transform duration-300 ease-out"
             style={{
-              transform: `translateY(${100 + slideOffset}%)`,
+              transform: isAnimating && slideOffset < 0 
+                ? `translateY(${100 + slideOffset}%)` 
+                : 'translateY(100%)',
+              visibility: isAnimating && slideOffset < 0 ? 'visible' : 'hidden'
             }}
           >
             <video
@@ -276,12 +279,15 @@ const MobileVideoPlayer = () => {
           </div>
         )}
         
-        {/* Previous video (when sliding down) */}
-        {isAnimating && slideOffset > 0 && currentVideoIndex > 0 && (
+        {/* Previous video - always preloaded but hidden */}
+        {currentVideoIndex > 0 && (
           <div 
             className="absolute inset-0 transition-transform duration-300 ease-out"
             style={{
-              transform: `translateY(${-100 + slideOffset}%)`,
+              transform: isAnimating && slideOffset > 0 
+                ? `translateY(${-100 + slideOffset}%)` 
+                : 'translateY(-100%)',
+              visibility: isAnimating && slideOffset > 0 ? 'visible' : 'hidden'
             }}
           >
             <video
