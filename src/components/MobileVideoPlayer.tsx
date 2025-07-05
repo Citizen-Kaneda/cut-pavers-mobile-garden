@@ -192,23 +192,14 @@ const MobileVideoPlayer = () => {
     
     const moveTouch = e.touches[0];
     const now = Date.now();
-    const deltaTime = now - lastTouch.current.time;
-    
-    if (deltaTime > 0) {
-      velocity.current.x = (moveTouch.clientX - lastTouch.current.x) / deltaTime;
-      velocity.current.y = (moveTouch.clientY - lastTouch.current.y) / deltaTime;
-    }
-    
-    const deltaX = moveTouch.clientX - touchStart.x;
-    const deltaY = moveTouch.clientY - touchStart.y;
     
     if (now - lastMoveTime.current < 8) return;
     lastMoveTime.current = now;
     
     const config = videoConfig[currentVideoIndex as keyof typeof videoConfig];
     
-    // Handle scrubbing based on video configuration
-    if (config.scrubDirection === 'horizontal' && Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 5) {
+    // Handle scrubbing only (no swipe navigation)
+    if (config.scrubDirection === 'horizontal') {
       const incrementalDelta = moveTouch.clientX - lastTouch.current.x;
       updateVideoTime(incrementalDelta, false);
       
@@ -217,7 +208,7 @@ const MobileVideoPlayer = () => {
         x: moveTouch.clientX, 
         y: moveTouch.clientY 
       }));
-    } else if (config.scrubDirection === 'vertical' && Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 5) {
+    } else if (config.scrubDirection === 'vertical') {
       const incrementalDelta = moveTouch.clientY - lastTouch.current.y;
       updateVideoTime(-incrementalDelta, true); // Negative for natural up/down feel
       
