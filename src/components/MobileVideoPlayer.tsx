@@ -257,7 +257,7 @@ const MobileVideoPlayer = () => {
           <div 
             className="absolute inset-0 transition-transform duration-300 ease-out"
             style={{
-              transform: `translateY(100%)`,
+              transform: `translateY(${100 + slideOffset}%)`,
             }}
           >
             <video
@@ -281,7 +281,7 @@ const MobileVideoPlayer = () => {
           <div 
             className="absolute inset-0 transition-transform duration-300 ease-out"
             style={{
-              transform: `translateY(-100%)`,
+              transform: `translateY(${-100 + slideOffset}%)`,
             }}
           >
             <video
