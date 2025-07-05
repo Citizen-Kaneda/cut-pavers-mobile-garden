@@ -232,19 +232,24 @@ const MobileVideoPlayer = () => {
     let targetIndex: number | undefined;
     
     // Check specific transitions for each video
-    switch (direction) {
-      case 'up':
-        targetIndex = (config.transitions as any).up;
-        break;
-      case 'down':
-        targetIndex = (config.transitions as any).down;
-        break;
-      case 'left':
-        targetIndex = (config.transitions as any).left;
-        break;
-      case 'right':
-        targetIndex = (config.transitions as any).right;
-        break;
+    if (currentVideoIndex === 0 && direction === 'down') {
+      // Special case for pano-0 which uses 'end' transition
+      targetIndex = (config.transitions as any).end;
+    } else {
+      switch (direction) {
+        case 'up':
+          targetIndex = (config.transitions as any).up;
+          break;
+        case 'down':
+          targetIndex = (config.transitions as any).down;
+          break;
+        case 'left':
+          targetIndex = (config.transitions as any).left;
+          break;
+        case 'right':
+          targetIndex = (config.transitions as any).right;
+          break;
+      }
     }
     
     if (targetIndex !== undefined) {
