@@ -16,15 +16,15 @@ const MobileVideoPlayer = () => {
   const lastTouch = useRef({ x: 0, y: 0, time: 0 });
 
   const videos = [
-    'https://raw.githubusercontent.com/Citizen-Kaneda/cut-pavers-mobile-garden/main/pano-0.mp4',
-    'https://raw.githubusercontent.com/Citizen-Kaneda/cut-pavers-mobile-garden/main/pano-1.mp4',
-    'https://raw.githubusercontent.com/Citizen-Kaneda/cut-pavers-mobile-garden/main/pano-2.mp4',
-    'https://raw.githubusercontent.com/Citizen-Kaneda/cut-pavers-mobile-garden/main/pano-3.mp4', 
-    'https://raw.githubusercontent.com/Citizen-Kaneda/cut-pavers-mobile-garden/main/pano-4.mp4',
-    'https://raw.githubusercontent.com/Citizen-Kaneda/cut-pavers-mobile-garden/main/pano-5.mp4',
-    'https://raw.githubusercontent.com/Citizen-Kaneda/cut-pavers-mobile-garden/main/pano-6.mp4',
-    'https://raw.githubusercontent.com/Citizen-Kaneda/cut-pavers-mobile-garden/main/pano-7.mp4',
-    'https://raw.githubusercontent.com/Citizen-Kaneda/cut-pavers-mobile-garden/main/pano-8.mp4'
+    '/pano-0.mp4',
+    '/pano-1.mp4',
+    '/pano-2.mp4',
+    '/pano-3.mp4', 
+    '/pano-4.mp4',
+    '/pano-5.mp4',
+    '/pano-6.mp4',
+    '/pano-7.mp4',
+    '/pano-8.mp4'
   ];
 
   // Update film strip position
