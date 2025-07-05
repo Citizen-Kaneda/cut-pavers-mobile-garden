@@ -179,9 +179,6 @@ const MobileVideoPlayer = () => {
     const newTime = Math.max(minTime, Math.min(video.duration, video.currentTime + timeChange));
     
     video.currentTime = newTime;
-    
-    // Check for seamless transitions at video boundaries
-    checkSeamlessTransition(video, newTime);
   }, [currentVideoIndex, firstVideoIntroPlayed, checkSeamlessTransition]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
