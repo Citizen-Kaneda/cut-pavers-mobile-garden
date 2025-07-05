@@ -217,7 +217,7 @@ const MobileVideoPlayer = () => {
         <video
           ref={videoRef}
           src={videos[currentVideoIndex]}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain object-top"
           muted
           playsInline
           preload="auto"
