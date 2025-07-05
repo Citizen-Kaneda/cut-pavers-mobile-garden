@@ -1,14 +1,7 @@
-import VideoPlayer from '@/components/VideoPlayer';
+import MobileVideoPlayer from '@/components/MobileVideoPlayer';
 
 const Index = () => {
-  return (
-    <div className="min-h-screen bg-background">
-      <VideoPlayer 
-        videoSrc="/pano-2.mp4" 
-        className="w-full h-screen"
-      />
-    </div>
-  );
+  return <MobileVideoPlayer />;
 };
 
 export default Index;
