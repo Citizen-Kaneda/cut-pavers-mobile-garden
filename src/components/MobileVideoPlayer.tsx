@@ -218,6 +218,18 @@ const MobileVideoPlayer = () => {
       }
     }
     
+    // Handle pano-7 horizontal swipe back to pano-1
+    if (currentVideoIndex === 7 && isValidSwipeX && deltaX > 0) {
+      setCurrentVideoIndex(1);
+      return;
+    }
+    
+    // Handle pano-8 horizontal swipe back to pano-1
+    if (currentVideoIndex === 8 && isValidSwipeX && deltaX < 0) {
+      setCurrentVideoIndex(1);
+      return;
+    }
+    
     setIsDragging(false);
     velocity.current = { x: 0, y: 0 };
   }, [isDragging, touchStart, currentVideoIndex, allVideosLoaded]);
