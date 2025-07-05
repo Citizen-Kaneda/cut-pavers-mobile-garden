@@ -27,15 +27,15 @@ const MobileVideoPlayer = () => {
   ];
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
-    const touch = e.touches[0];
+    const startTouch = e.touches[0];
     const now = Date.now();
     
     setTouchStart({ 
-      x: touch.clientX, 
-      y: touch.clientY, 
+      x: startTouch.clientX, 
+      y: startTouch.clientY, 
       time: now 
     });
-    lastTouch.current = { x: touch.clientX, y: touch.clientY, time: now };
+    lastTouch.current = { x: startTouch.clientX, y: startTouch.clientY, time: now };
     velocity.current = { x: 0, y: 0 };
     setIsDragging(true);
     
@@ -77,18 +77,18 @@ const MobileVideoPlayer = () => {
     e.preventDefault();
     e.stopPropagation();
     
-    const touch = e.touches[0];
+    const moveTouch = e.touches[0];
     const now = Date.now();
     const deltaTime = now - lastTouch.current.time;
     
     // Calculate velocity for smoother interactions
     if (deltaTime > 0) {
-      velocity.current.x = (touch.clientX - lastTouch.current.x) / deltaTime;
-      velocity.current.y = (touch.clientY - lastTouch.current.y) / deltaTime;
+      velocity.current.x = (moveTouch.clientX - lastTouch.current.x) / deltaTime;
+      velocity.current.y = (moveTouch.clientY - lastTouch.current.y) / deltaTime;
     }
     
-    const deltaX = touch.clientX - touchStart.x;
-    const deltaY = touch.clientY - touchStart.y;
+    const deltaX = moveTouch.clientX - touchStart.x;
+    const deltaY = moveTouch.clientY - touchStart.y;
     
     // Reduced throttling for ultra-smooth response
     if (now - lastMoveTime.current < 8) return; // ~120fps
@@ -96,26 +96,26 @@ const MobileVideoPlayer = () => {
     
     // Immediate horizontal scrubbing detection
     if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 5) {
-      const incrementalDelta = touch.clientX - lastTouch.current.x;
+      const incrementalDelta = moveTouch.clientX - lastTouch.current.x;
       updateVideoTime(incrementalDelta);
       
       // Update references for next frame
       setTouchStart(prev => ({ 
         ...prev, 
-        x: touch.clientX, 
-        y: touch.clientY 
+        x: moveTouch.clientX, 
+        y: moveTouch.clientY 
       }));
     }
     
-    lastTouch.current = { x: touch.clientX, y: touch.clientY, time: now };
+    lastTouch.current = { x: moveTouch.clientX, y: moveTouch.clientY, time: now };
   }, [isDragging, touchStart, updateVideoTime]);
 
   const handleTouchEnd = useCallback((e: TouchEvent) => {
     if (!isDragging) return;
     
-    const touch = e.changedTouches[0];
-    const deltaX = touch.clientX - touchStart.x;
-    const deltaY = touch.clientY - touchStart.y;
+    const endTouch = e.changedTouches[0];
+    const deltaX = endTouch.clientX - touchStart.x;
+    const deltaY = endTouch.clientY - touchStart.y;
     const deltaTime = Date.now() - touchStart.time;
     
     // Clean up animation frame
