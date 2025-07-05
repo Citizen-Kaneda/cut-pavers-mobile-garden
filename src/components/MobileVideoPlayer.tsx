@@ -7,6 +7,7 @@ const MobileVideoPlayer = () => {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [touchStart, setTouchStart] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [firstVideoIntroPlayed, setFirstVideoIntroPlayed] = useState(false);
 
   const videos = [
     '/pano-0.mp4',
@@ -44,14 +45,18 @@ const MobileVideoPlayer = () => {
       if (video.duration && !isNaN(video.duration)) {
         const sensitivity = video.duration / window.innerWidth; // More responsive scrubbing
         const timeChange = deltaX * sensitivity;
-        const newTime = Math.max(0, Math.min(video.duration, video.currentTime + timeChange));
+        
+        // For first video, prevent scrubbing back to intro once it's been played
+        const minTime = (currentVideoIndex === 0 && firstVideoIntroPlayed) ? 5 : 0;
+        const newTime = Math.max(minTime, Math.min(video.duration, video.currentTime + timeChange));
+        
         video.currentTime = newTime;
         console.log('Scrubbing to:', newTime, 'delta:', deltaX);
       }
       // Update touch start for continuous scrubbing
       setTouchStart({ x: touch.clientX, y: touch.clientY });
     }
-  }, [isDragging, touchStart]);
+  }, [isDragging, touchStart, currentVideoIndex, firstVideoIntroPlayed]);
 
   const handleTouchEnd = useCallback((e: TouchEvent) => {
     if (!isDragging) return;
@@ -101,6 +106,7 @@ const MobileVideoPlayer = () => {
     const handleTimeUpdate = () => {
       if (currentVideoIndex === 0 && video.currentTime >= 5) {
         video.pause();
+        setFirstVideoIntroPlayed(true);
       }
     };
 
