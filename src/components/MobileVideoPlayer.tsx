@@ -529,7 +529,8 @@ const MobileVideoPlayer = () => {
             if (isHorizontalVideo && horizontalPosition) {
               // Render horizontal videos with special positioning
               const isVisible = index === currentVideoIndex || 
-                              (animationState !== 'idle' && index === previousVideoIndex);
+                              (animationState !== 'idle' && index === previousVideoIndex) ||
+                              index === 1; // Always keep pano-1 visible as it's the hub
               
               return (
                 <div 
@@ -537,10 +538,12 @@ const MobileVideoPlayer = () => {
                   className="w-full h-screen flex-shrink-0 absolute inset-0"
                   style={{ 
                     height: '100vh',
-                    transform: `translateX(${horizontalPosition.translateX}) translateY(${-currentVideoIndex * 100}vh)`,
+                    transform: `translateX(${horizontalPosition.translateX}) translateY(0px)`,
                     transition: animationState !== 'idle' ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
                     opacity: isVisible ? 1 : 0,
-                    zIndex: index === currentVideoIndex ? 10 : 5
+                    zIndex: index === currentVideoIndex ? 10 : 5,
+                    display: currentVideoIndex === 1 || currentVideoIndex === 7 || currentVideoIndex === 8 || 
+                             (animationState !== 'idle' && (index === previousVideoIndex || index === currentVideoIndex)) ? 'block' : 'none'
                   }}
                 >
                   <video
@@ -564,11 +567,17 @@ const MobileVideoPlayer = () => {
               );
             } else {
               // Render vertical videos normally in film strip
+              const isVerticalVideoVisible = ![1, 7, 8].includes(currentVideoIndex) && index === currentVideoIndex;
+              
               return (
                 <div 
                   key={index}
                   className="w-full h-screen flex-shrink-0"
-                  style={{ height: '100vh' }}
+                  style={{ 
+                    height: '100vh',
+                    opacity: isVerticalVideoVisible ? 1 : 0,
+                    display: isVerticalVideoVisible ? 'block' : 'none'
+                  }}
                 >
                   <video
                     ref={el => videoRefs.current[index] = el}
