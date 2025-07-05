@@ -10,7 +10,6 @@ const MobileVideoPlayer = () => {
   const [firstVideoIntroPlayed, setFirstVideoIntroPlayed] = useState(false);
   const [loadedVideos, setLoadedVideos] = useState<Set<number>>(new Set());
   const [allVideosLoaded, setAllVideosLoaded] = useState(false);
-  const [boundaryHit, setBoundaryHit] = useState<{ direction: 'up' | 'down' | 'left' | 'right' | null; targetIndex: number | null }>({ direction: null, targetIndex: null });
   
   const lastMoveTime = useRef(0);
   const velocity = useRef({ x: 0, y: 0 });
@@ -68,13 +67,13 @@ const MobileVideoPlayer = () => {
     },
     7: { 
       scrubDirection: 'horizontal', 
-      startPosition: 0.067, // Skip first 2 frames
-      transitions: { right: 1 }
+      startPosition: 'beginning',
+      transitions: { beginning: 1 }
     },
     8: { 
       scrubDirection: 'horizontal', 
-      startPosition: 'middle',
-      transitions: { left: 1 }
+      startPosition: 'end',
+      transitions: { beginning: 1 }
     }
   };
 
@@ -111,20 +110,9 @@ const MobileVideoPlayer = () => {
     // Check if at beginning and should transition
     if (currentTime <= threshold && 'beginning' in config.transitions && config.transitions.beginning !== undefined) {
       const targetVideoIndex = config.transitions.beginning;
-      
-      // If this is the first approach to boundary, bounce back and show prompt
-      if (boundaryHit.direction !== 'up' || boundaryHit.targetIndex !== targetVideoIndex) {
-        video.currentTime = Math.min(video.duration, currentTime + 0.2); // Bounce back 2 frames
-        video.pause();
-        setBoundaryHit({ direction: 'up', targetIndex: targetVideoIndex });
-        return;
-      }
-      
-      // Second approach - make the transition
       const targetVideo = videoRefs.current[targetVideoIndex];
       if (targetVideo) {
         setCurrentVideoIndex(targetVideoIndex);
-        setBoundaryHit({ direction: null, targetIndex: null });
         // Set target video to appropriate position
         const targetConfig = videoConfig[targetVideoIndex as keyof typeof videoConfig];
         if (targetConfig.startPosition === 'end') {
@@ -138,20 +126,9 @@ const MobileVideoPlayer = () => {
     // Check if at end and should transition
     if (currentTime >= video.duration - threshold && 'end' in config.transitions && config.transitions.end !== undefined) {
       const targetVideoIndex = config.transitions.end;
-      
-      // If this is the first approach to boundary, bounce back and show prompt
-      if (boundaryHit.direction !== 'down' || boundaryHit.targetIndex !== targetVideoIndex) {
-        video.currentTime = Math.max(0, currentTime - 0.2); // Bounce back 2 frames
-        video.pause();
-        setBoundaryHit({ direction: 'down', targetIndex: targetVideoIndex });
-        return;
-      }
-      
-      // Second approach - make the transition
       const targetVideo = videoRefs.current[targetVideoIndex];
       if (targetVideo) {
         setCurrentVideoIndex(targetVideoIndex);
-        setBoundaryHit({ direction: null, targetIndex: null });
         // Set target video to appropriate position
         const targetConfig = videoConfig[targetVideoIndex as keyof typeof videoConfig];
         if (targetConfig.startPosition === 'middle') {
@@ -161,7 +138,7 @@ const MobileVideoPlayer = () => {
         }
       }
     }
-  }, [currentVideoIndex, boundaryHit]);
+  }, [currentVideoIndex]);
 
   const updateVideoTime = useCallback((delta: number, isVertical: boolean = false) => {
     const video = videoRefs.current[currentVideoIndex];
@@ -179,6 +156,9 @@ const MobileVideoPlayer = () => {
     const newTime = Math.max(minTime, Math.min(video.duration, video.currentTime + timeChange));
     
     video.currentTime = newTime;
+    
+    // Check for seamless transitions at video boundaries
+    checkSeamlessTransition(video, newTime);
   }, [currentVideoIndex, firstVideoIntroPlayed, checkSeamlessTransition]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
@@ -189,14 +169,23 @@ const MobileVideoPlayer = () => {
     
     const moveTouch = e.touches[0];
     const now = Date.now();
+    const deltaTime = now - lastTouch.current.time;
+    
+    if (deltaTime > 0) {
+      velocity.current.x = (moveTouch.clientX - lastTouch.current.x) / deltaTime;
+      velocity.current.y = (moveTouch.clientY - lastTouch.current.y) / deltaTime;
+    }
+    
+    const deltaX = moveTouch.clientX - touchStart.x;
+    const deltaY = moveTouch.clientY - touchStart.y;
     
     if (now - lastMoveTime.current < 8) return;
     lastMoveTime.current = now;
     
     const config = videoConfig[currentVideoIndex as keyof typeof videoConfig];
     
-    // Handle scrubbing only (no swipe navigation)
-    if (config.scrubDirection === 'horizontal') {
+    // Handle scrubbing based on video configuration
+    if (config.scrubDirection === 'horizontal' && Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 5) {
       const incrementalDelta = moveTouch.clientX - lastTouch.current.x;
       updateVideoTime(incrementalDelta, false);
       
@@ -205,7 +194,7 @@ const MobileVideoPlayer = () => {
         x: moveTouch.clientX, 
         y: moveTouch.clientY 
       }));
-    } else if (config.scrubDirection === 'vertical') {
+    } else if (config.scrubDirection === 'vertical' && Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 5) {
       const incrementalDelta = moveTouch.clientY - lastTouch.current.y;
       updateVideoTime(-incrementalDelta, true); // Negative for natural up/down feel
       
@@ -219,161 +208,45 @@ const MobileVideoPlayer = () => {
     lastTouch.current = { x: moveTouch.clientX, y: moveTouch.clientY, time: now };
   }, [isDragging, touchStart, updateVideoTime, allVideosLoaded, currentVideoIndex]);
 
-  const handleTouchEnd = useCallback(() => {
+  const handleTouchEnd = useCallback((e: TouchEvent) => {
+    if (!isDragging || !allVideosLoaded) return;
+    
+    const endTouch = e.changedTouches[0];
+    const deltaX = endTouch.clientX - touchStart.x;
+    const deltaY = endTouch.clientY - touchStart.y;
+    const deltaTime = Date.now() - touchStart.time;
+    
+    const velocityThreshold = 0.3;
+    const minSwipeDistance = 50;
+    const maxSwipeTime = 800;
+    
+    const absVelocityX = Math.abs(velocity.current.x);
+    const absVelocityY = Math.abs(velocity.current.y);
+    const isValidSwipeX = (deltaTime < maxSwipeTime && Math.abs(deltaX) > minSwipeDistance) || 
+                          absVelocityX > velocityThreshold;
+    const isValidSwipeY = (deltaTime < maxSwipeTime && Math.abs(deltaY) > minSwipeDistance) || 
+                          absVelocityY > velocityThreshold;
+    
+    // Handle pano-1's four-directional navigation
+    if (currentVideoIndex === 1) {
+      const pano1Transitions = videoConfig[1].transitions as { up: number; down: number; left: number; right: number };
+      
+      if (Math.abs(deltaY) > Math.abs(deltaX) && isValidSwipeY) {
+        // Vertical swipe
+        const direction = deltaY < 0 || velocity.current.y < -velocityThreshold;
+        const targetIndex = direction ? pano1Transitions.up : pano1Transitions.down;
+        setCurrentVideoIndex(targetIndex);
+      } else if (Math.abs(deltaX) > Math.abs(deltaY) && isValidSwipeX) {
+        // Horizontal swipe
+        const direction = deltaX > 0 || velocity.current.x > velocityThreshold;
+        const targetIndex = direction ? pano1Transitions.right : pano1Transitions.left;
+        setCurrentVideoIndex(targetIndex);
+      }
+    }
+    
     setIsDragging(false);
     velocity.current = { x: 0, y: 0 };
-  }, []);
-
-  // Handle navigation button clicks
-  const handleNavigation = useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
-    if (!allVideosLoaded) return;
-    
-    const config = videoConfig[currentVideoIndex as keyof typeof videoConfig];
-    let targetIndex: number | undefined;
-    
-    // Check specific transitions for each video
-    if (currentVideoIndex === 0 && direction === 'down') {
-      // Special case for pano-0 which uses 'end' transition
-      targetIndex = (config.transitions as any).end;
-    } else {
-      switch (direction) {
-        case 'up':
-          targetIndex = (config.transitions as any).up;
-          break;
-        case 'down':
-          targetIndex = (config.transitions as any).down;
-          break;
-        case 'left':
-          targetIndex = (config.transitions as any).left;
-          break;
-        case 'right':
-          targetIndex = (config.transitions as any).right;
-          break;
-      }
-    }
-    
-    if (targetIndex !== undefined) {
-      // Add swooping animation for horizontal transitions
-      if ((currentVideoIndex === 1 && (targetIndex === 7 || targetIndex === 8)) || 
-          (currentVideoIndex === 7 && targetIndex === 1) || 
-          (currentVideoIndex === 8 && targetIndex === 1)) {
-        
-        if (filmStripRef.current) {
-          const isMovingRight = (currentVideoIndex === 1 && targetIndex === 8) || (currentVideoIndex === 7 && targetIndex === 1);
-          const translateX = isMovingRight ? '100vw' : '-100vw';
-          const targetTranslateY = -targetIndex * 100;
-          
-          // First, swoop horizontally
-          filmStripRef.current.style.transition = 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-          filmStripRef.current.style.transform = `translateY(${-currentVideoIndex * 100}vh) translateX(${translateX})`;
-          
-          setTimeout(() => {
-            if (filmStripRef.current) {
-              // Then move to target position
-              filmStripRef.current.style.transform = `translateY(${targetTranslateY}vh) translateX(${translateX})`;
-              
-              setTimeout(() => {
-                if (filmStripRef.current) {
-                  // Finally, slide back to center
-                  filmStripRef.current.style.transform = `translateY(${targetTranslateY}vh) translateX(0)`;
-                  
-                  setTimeout(() => {
-                    if (filmStripRef.current) {
-                      // Reset transition for normal operation
-                      filmStripRef.current.style.transition = 'transform 0.3s ease-out';
-                    }
-                  }, 400);
-                }
-              }, 100);
-            }
-          }, 200);
-        }
-      }
-      
-      setCurrentVideoIndex(targetIndex);
-      setBoundaryHit({ direction: null, targetIndex: null });
-      
-      // Set target video to appropriate position
-      const targetVideo = videoRefs.current[targetIndex];
-      const targetConfig = videoConfig[targetIndex as keyof typeof videoConfig];
-      if (targetVideo) {
-        if (targetConfig.startPosition === 'middle') {
-          targetVideo.currentTime = targetVideo.duration / 2;
-        } else if (targetConfig.startPosition === 'end') {
-          targetVideo.currentTime = targetVideo.duration - 0.1;
-        } else if (typeof targetConfig.startPosition === 'number') {
-          targetVideo.currentTime = targetConfig.startPosition;
-        } else {
-          targetVideo.currentTime = 0;
-        }
-      }
-    }
-  }, [currentVideoIndex, allVideosLoaded, videos.length]);
-
-  // Get navigation arrows for current video
-  const getNavigationArrows = useCallback(() => {
-    const arrows = [];
-    
-    switch (currentVideoIndex) {
-      case 0: // pano-0: 1 arrow (down to pano-1)
-        arrows.push({ direction: 'down' as const, targetIndex: 1 });
-        break;
-      case 1: // pano-1: 4 arrows
-        arrows.push(
-          { direction: 'up' as const, targetIndex: 0 },
-          { direction: 'down' as const, targetIndex: 2 },
-          { direction: 'left' as const, targetIndex: 7 },
-          { direction: 'right' as const, targetIndex: 8 }
-        );
-        break;
-      case 2: // pano-2: 2 arrows (up/down)
-        arrows.push(
-          { direction: 'up' as const, targetIndex: 1 },
-          { direction: 'down' as const, targetIndex: 3 }
-        );
-        break;
-      case 3: // pano-3: 2 arrows (up/down)
-        arrows.push(
-          { direction: 'up' as const, targetIndex: 2 },
-          { direction: 'down' as const, targetIndex: 4 }
-        );
-        break;
-      case 4: // pano-4: 2 arrows (up/down)
-        arrows.push(
-          { direction: 'up' as const, targetIndex: 3 },
-          { direction: 'down' as const, targetIndex: 5 }
-        );
-        break;
-      case 5: // pano-5: 2 arrows (up/down)
-        arrows.push(
-          { direction: 'up' as const, targetIndex: 4 },
-          { direction: 'down' as const, targetIndex: 6 }
-        );
-        break;
-      case 7: // pano-7: 1 arrow (right to pano-1)
-        arrows.push({ direction: 'right' as const, targetIndex: 1 });
-        break;
-      case 8: // pano-8: 1 arrow (left to pano-1)
-        arrows.push({ direction: 'left' as const, targetIndex: 1 });
-        break;
-    }
-    
-    return arrows;
-  }, [currentVideoIndex]);
-
-  // Get arrow position styles
-  const getArrowPosition = (direction: 'up' | 'down' | 'left' | 'right') => {
-    switch (direction) {
-      case 'up':
-        return { top: '144px', left: '50%', transform: 'translateX(-50%)', rotate: '0deg' };
-      case 'down':
-        return { bottom: '144px', left: '50%', transform: 'translateX(-50%)', rotate: '180deg' };
-      case 'left':
-        return { left: '144px', top: '50%', transform: 'translateY(-50%)', rotate: '-90deg' };
-      case 'right':
-        return { right: '144px', top: '50%', transform: 'translateY(-50%)', rotate: '90deg' };
-    }
-  };
+  }, [isDragging, touchStart, currentVideoIndex, allVideosLoaded]);
 
   // Initialize video positions when switching
   useEffect(() => {
@@ -389,8 +262,6 @@ const MobileVideoPlayer = () => {
       video.currentTime = video.duration / 2;
     } else if (config.startPosition === 'end') {
       video.currentTime = video.duration - 0.1;
-    } else if (typeof config.startPosition === 'number') {
-      video.currentTime = config.startPosition;
     } else {
       video.currentTime = 0;
     }
@@ -504,95 +375,6 @@ const MobileVideoPlayer = () => {
               <p>Loading videos... ({loadedVideos.size}/{videos.length})</p>
             </div>
           </div>
-        )}
-        
-        {/* Navigation arrows */}
-        {allVideosLoaded && getNavigationArrows().map(({ direction, targetIndex }) => {
-          const position = getArrowPosition(direction);
-          return (
-            <button
-              key={direction}
-              onClick={() => handleNavigation(direction)}
-              className="absolute text-white animate-pulse hover:scale-110 transition-transform"
-              style={{
-                ...position,
-                fontSize: direction === 'up' || direction === 'down' ? '99px' : '33px',
-                lineHeight: '1',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                zIndex: 10
-              }}
-            >
-              ▲
-            </button>
-          );
-        })}
-        
-        {/* Scrub direction indicators */}
-        {allVideosLoaded && (
-          <>
-            {videoConfig[currentVideoIndex as keyof typeof videoConfig].scrubDirection === 'vertical' && (
-              <>
-                <div 
-                  className="absolute text-white/50 animate-pulse pointer-events-none"
-                  style={{
-                    top: '33.33%',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    fontSize: '20px',
-                    width: '60px',
-                    height: '4px',
-                    background: 'white',
-                    clipPath: 'polygon(0 40%, 100% 40%, 90% 0%, 100% 60%, 0% 60%, 10% 100%)'
-                  }}
-                />
-                <div 
-                  className="absolute text-white/50 animate-pulse pointer-events-none"
-                  style={{
-                    bottom: '33.33%',
-                    left: '50%',
-                    transform: 'translateX(-50%) rotate(180deg)',
-                    fontSize: '20px',
-                    width: '60px',
-                    height: '4px',
-                    background: 'white',
-                    clipPath: 'polygon(0 40%, 100% 40%, 90% 0%, 100% 60%, 0% 60%, 10% 100%)'
-                  }}
-                />
-              </>
-            )}
-            {videoConfig[currentVideoIndex as keyof typeof videoConfig].scrubDirection === 'horizontal' && (
-              <>
-                <div 
-                  className="absolute text-white/50 animate-pulse pointer-events-none"
-                  style={{
-                    left: '33.33%',
-                    top: '50%',
-                    transform: 'translateY(-50%) rotate(-90deg)',
-                    fontSize: '20px',
-                    width: '60px',
-                    height: '4px',
-                    background: 'white',
-                    clipPath: 'polygon(0 40%, 100% 40%, 90% 0%, 100% 60%, 0% 60%, 10% 100%)'
-                  }}
-                />
-                <div 
-                  className="absolute text-white/50 animate-pulse pointer-events-none"
-                  style={{
-                    right: '33.33%',
-                    top: '50%',
-                    transform: 'translateY(-50%) rotate(90deg)',
-                    fontSize: '20px',
-                    width: '60px',
-                    height: '4px',
-                    background: 'white',
-                    clipPath: 'polygon(0 40%, 100% 40%, 90% 0%, 100% 60%, 0% 60%, 10% 100%)'
-                  }}
-                />
-              </>
-            )}
-          </>
         )}
         
         {/* Video indicator */}
