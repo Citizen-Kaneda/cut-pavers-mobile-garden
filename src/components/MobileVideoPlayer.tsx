@@ -228,11 +228,13 @@ const MobileVideoPlayer = () => {
           WebkitBackfaceVisibility: 'hidden'
         }}
       >
-        {/* Video container with sliding animation */}
+        {/* Current video container with sliding animation */}
         <div 
           className="absolute inset-0 transition-transform duration-300 ease-out"
           style={{
             transform: `translateY(${slideOffset}%)`,
+            visibility: 'visible',
+            zIndex: 10
           }}
         >
           <video
@@ -260,7 +262,8 @@ const MobileVideoPlayer = () => {
               transform: isAnimating && slideOffset < 0 
                 ? `translateY(${100 + slideOffset}%)` 
                 : 'translateY(100%)',
-              visibility: isAnimating && slideOffset < 0 ? 'visible' : 'hidden'
+              visibility: isAnimating && slideOffset < 0 ? 'visible' : 'hidden',
+              zIndex: isAnimating && slideOffset < 0 ? 15 : 5
             }}
           >
             <video
@@ -287,7 +290,8 @@ const MobileVideoPlayer = () => {
               transform: isAnimating && slideOffset > 0 
                 ? `translateY(${-100 + slideOffset}%)` 
                 : 'translateY(-100%)',
-              visibility: isAnimating && slideOffset > 0 ? 'visible' : 'hidden'
+              visibility: isAnimating && slideOffset > 0 ? 'visible' : 'hidden',
+              zIndex: isAnimating && slideOffset > 0 ? 15 : 5
             }}
           >
             <video
