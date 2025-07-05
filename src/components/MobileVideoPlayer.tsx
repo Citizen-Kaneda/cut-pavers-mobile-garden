@@ -168,7 +168,7 @@ const MobileVideoPlayer = () => {
     
     const moveTouch = e.touches[0];
     const now = Date.now();
-    const deltaTime = now - Date.now();
+    const deltaTime = now - touchStart.time;
     
     if (deltaTime > 0) {
       velocity.current.x = (moveTouch.clientX - touchStart.x) / deltaTime;
@@ -194,6 +194,12 @@ const MobileVideoPlayer = () => {
                           absVelocityX > velocityThreshold;
     const isValidSwipeY = (deltaTime < maxSwipeTime && Math.abs(deltaY) > minSwipeDistance) || 
                           absVelocityY > velocityThreshold;
+    
+    // Handle pano-0 to pano-1 vertical swipe transition
+    if (currentVideoIndex === 0 && isValidSwipeY && deltaY < 0) {
+      setCurrentVideoIndex(1);
+      return;
+    }
     
     // Handle pano-1's four-directional navigation
     if (currentVideoIndex === 1) {
