@@ -10,10 +10,11 @@ const MobileVideoPlayer = () => {
   const [firstVideoIntroPlayed, setFirstVideoIntroPlayed] = useState(false);
   const [loadedVideos, setLoadedVideos] = useState<Set<number>>(new Set());
   const [allVideosLoaded, setAllVideosLoaded] = useState(false);
+  const [initialOrientation, setInitialOrientation] = useState<{ alpha: number; beta: number; gamma: number } | null>(null);
+  const [permissionGranted, setPermissionGranted] = useState(false);
   
-  const lastMoveTime = useRef(0);
   const velocity = useRef({ x: 0, y: 0 });
-  const lastTouch = useRef({ x: 0, y: 0, time: 0 });
+  const orientationRef = useRef<{ alpha: number; beta: number; gamma: number } | null>(null);
 
   const videos = [
     '/pano-0.mp4',
@@ -98,7 +99,6 @@ const MobileVideoPlayer = () => {
       y: startTouch.clientY, 
       time: now 
     });
-    lastTouch.current = { x: startTouch.clientX, y: startTouch.clientY, time: now };
     velocity.current = { x: 0, y: 0 };
     setIsDragging(true);
   }, []);
@@ -140,7 +140,7 @@ const MobileVideoPlayer = () => {
     }
   }, [currentVideoIndex]);
 
-  const updateVideoTime = useCallback((delta: number, isVertical: boolean = false) => {
+  const updateVideoTimeFromTilt = useCallback((tiltDegrees: number, isVertical: boolean = false) => {
     const video = videoRefs.current[currentVideoIndex];
     if (!video || !video.duration || isNaN(video.duration)) return;
     
@@ -148,12 +148,14 @@ const MobileVideoPlayer = () => {
     const isCorrectDirection = (config.scrubDirection === 'vertical') === isVertical;
     if (!isCorrectDirection) return;
     
-    const screenSize = isVertical ? window.innerHeight : window.innerWidth;
-    const sensitivity = video.duration / (screenSize * 1.5);
-    const timeChange = delta * sensitivity;
+    // Map 30 degrees of tilt to full video duration
+    const maxTiltDegrees = 30;
+    const clampedTilt = Math.max(-maxTiltDegrees, Math.min(maxTiltDegrees, tiltDegrees));
+    const tiltProgress = (clampedTilt + maxTiltDegrees) / (maxTiltDegrees * 2); // 0 to 1
     
     const minTime = (currentVideoIndex === 0 && firstVideoIntroPlayed) ? 5 : 0;
-    const newTime = Math.max(minTime, Math.min(video.duration, video.currentTime + timeChange));
+    const maxTime = video.duration;
+    const newTime = minTime + (tiltProgress * (maxTime - minTime));
     
     video.currentTime = newTime;
     
@@ -164,49 +166,15 @@ const MobileVideoPlayer = () => {
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (!isDragging || !allVideosLoaded) return;
     
-    e.preventDefault();
-    e.stopPropagation();
-    
     const moveTouch = e.touches[0];
     const now = Date.now();
-    const deltaTime = now - lastTouch.current.time;
+    const deltaTime = now - Date.now();
     
     if (deltaTime > 0) {
-      velocity.current.x = (moveTouch.clientX - lastTouch.current.x) / deltaTime;
-      velocity.current.y = (moveTouch.clientY - lastTouch.current.y) / deltaTime;
+      velocity.current.x = (moveTouch.clientX - touchStart.x) / deltaTime;
+      velocity.current.y = (moveTouch.clientY - touchStart.y) / deltaTime;
     }
-    
-    const deltaX = moveTouch.clientX - touchStart.x;
-    const deltaY = moveTouch.clientY - touchStart.y;
-    
-    if (now - lastMoveTime.current < 8) return;
-    lastMoveTime.current = now;
-    
-    const config = videoConfig[currentVideoIndex as keyof typeof videoConfig];
-    
-    // Handle scrubbing based on video configuration
-    if (config.scrubDirection === 'horizontal' && Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 5) {
-      const incrementalDelta = moveTouch.clientX - lastTouch.current.x;
-      updateVideoTime(incrementalDelta, false);
-      
-      setTouchStart(prev => ({ 
-        ...prev, 
-        x: moveTouch.clientX, 
-        y: moveTouch.clientY 
-      }));
-    } else if (config.scrubDirection === 'vertical' && Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 5) {
-      const incrementalDelta = moveTouch.clientY - lastTouch.current.y;
-      updateVideoTime(-incrementalDelta, true); // Negative for natural up/down feel
-      
-      setTouchStart(prev => ({ 
-        ...prev, 
-        x: moveTouch.clientX, 
-        y: moveTouch.clientY 
-      }));
-    }
-    
-    lastTouch.current = { x: moveTouch.clientX, y: moveTouch.clientY, time: now };
-  }, [isDragging, touchStart, updateVideoTime, allVideosLoaded, currentVideoIndex]);
+  }, [isDragging, touchStart, allVideosLoaded]);
 
   const handleTouchEnd = useCallback((e: TouchEvent) => {
     if (!isDragging || !allVideosLoaded) return;
@@ -248,7 +216,7 @@ const MobileVideoPlayer = () => {
     velocity.current = { x: 0, y: 0 };
   }, [isDragging, touchStart, currentVideoIndex, allVideosLoaded]);
 
-  // Initialize video positions when switching
+  // Initialize video positions when switching and reset orientation calibration
   useEffect(() => {
     if (!allVideosLoaded) return;
     
@@ -265,7 +233,67 @@ const MobileVideoPlayer = () => {
     } else {
       video.currentTime = 0;
     }
+
+    // Reset orientation calibration when switching videos
+    if (orientationRef.current) {
+      setInitialOrientation(orientationRef.current);
+    }
   }, [currentVideoIndex, allVideosLoaded]);
+
+  // Request device orientation permission and setup
+  useEffect(() => {
+    const requestPermission = async () => {
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+        try {
+          const permission = await (DeviceOrientationEvent as any).requestPermission();
+          setPermissionGranted(permission === 'granted');
+        } catch (error) {
+          console.error('Permission request failed:', error);
+        }
+      } else {
+        // For non-iOS devices or when permission is not required
+        setPermissionGranted(true);
+      }
+    };
+
+    requestPermission();
+  }, []);
+
+  // Handle device orientation
+  useEffect(() => {
+    if (!permissionGranted || !allVideosLoaded) return;
+
+    const handleOrientation = (event: DeviceOrientationEvent) => {
+      const { alpha, beta, gamma } = event;
+      if (alpha === null || beta === null || gamma === null) return;
+
+      orientationRef.current = { alpha, beta, gamma };
+
+      // Set initial orientation when first reading
+      if (!initialOrientation) {
+        setInitialOrientation({ alpha, beta, gamma });
+        return;
+      }
+
+      const config = videoConfig[currentVideoIndex as keyof typeof videoConfig];
+      
+      if (config.scrubDirection === 'vertical') {
+        // Use beta (front-to-back tilt) for vertical scrubbing
+        const tiltDegrees = beta - initialOrientation.beta;
+        updateVideoTimeFromTilt(tiltDegrees, true);
+      } else if (config.scrubDirection === 'horizontal') {
+        // Use gamma (left-to-right tilt) for horizontal scrubbing  
+        const tiltDegrees = gamma - initialOrientation.gamma;
+        updateVideoTimeFromTilt(tiltDegrees, false);
+      }
+    };
+
+    window.addEventListener('deviceorientation', handleOrientation);
+    
+    return () => {
+      window.removeEventListener('deviceorientation', handleOrientation);
+    };
+  }, [permissionGranted, allVideosLoaded, initialOrientation, currentVideoIndex, updateVideoTimeFromTilt]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -380,7 +408,15 @@ const MobileVideoPlayer = () => {
         {/* Video indicator */}
         <div className="absolute top-4 left-4 text-black bg-white/80 px-2 py-1 rounded text-sm">
           {currentVideoIndex + 1} / {videos.length}
+          {!permissionGranted && <div className="text-red-500 text-xs">Tilt permission needed</div>}
         </div>
+
+        {/* Tilt to scrub instruction */}
+        {permissionGranted && initialOrientation && (
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-black bg-white/80 px-3 py-2 rounded text-sm text-center">
+            Tilt device to scrub video
+          </div>
+        )}
       </div>
     </div>
   );
