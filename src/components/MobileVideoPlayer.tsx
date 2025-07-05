@@ -207,14 +207,14 @@ const MobileVideoPlayer = () => {
       const pano1Transitions = videoConfig[1].transitions as { up: number; down: number; left: number; right: number };
       
       if (Math.abs(deltaY) > Math.abs(deltaX) && isValidSwipeY) {
-        // Vertical swipe
+        // Vertical swipe (reversed)
         const direction = deltaY < 0 || velocity.current.y < -velocityThreshold;
-        const targetIndex = direction ? pano1Transitions.up : pano1Transitions.down;
+        const targetIndex = direction ? pano1Transitions.down : pano1Transitions.up;
         setCurrentVideoIndex(targetIndex);
       } else if (Math.abs(deltaX) > Math.abs(deltaY) && isValidSwipeX) {
-        // Horizontal swipe
+        // Horizontal swipe (reversed)
         const direction = deltaX > 0 || velocity.current.x > velocityThreshold;
-        const targetIndex = direction ? pano1Transitions.right : pano1Transitions.left;
+        const targetIndex = direction ? pano1Transitions.left : pano1Transitions.right;
         setCurrentVideoIndex(targetIndex);
       }
     }
