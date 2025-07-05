@@ -10,16 +10,16 @@ const MobileVideoPlayer = () => {
   const [firstVideoIntroPlayed, setFirstVideoIntroPlayed] = useState(false);
 
   const videos = [
-    '/pano-0.mp4?v=2',
-    '/pano-1.mp4?v=2',
-    '/pano-2.mp4?v=2',
-    '/pano-3.mp4?v=2', 
-    '/pano-4.mp4?v=2',
-    '/pano-5.mp4?v=2',
-    '/pano-6.mp4?v=2',
-    '/pano-7.mp4?v=2',
-    '/pano-8.mp4?v=2',
-    '/pano-9.mp4?v=2'
+    '/pano-0.mp4?v=3',
+    '/pano-1.mp4?v=3',
+    '/pano-2.mp4?v=3',
+    '/pano-3.mp4?v=3', 
+    '/pano-4.mp4?v=3',
+    '/pano-5.mp4?v=3',
+    '/pano-6.mp4?v=3',
+    '/pano-7.mp4?v=3',
+    '/pano-8.mp4?v=3',
+    '/pano-9.mp4?v=3'
   ];
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
