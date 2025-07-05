@@ -104,18 +104,31 @@ const MobileVideoPlayer = () => {
       }
     };
 
-    video.addEventListener('timeupdate', handleTimeUpdate);
-    
-    // Start first video automatically
-    if (currentVideoIndex === 0) {
-      video.currentTime = 0;
-      video.play().catch(console.error);
-    }
+    const handleLoadedData = () => {
+      console.log('Video loaded:', videos[currentVideoIndex]);
+      // Start first video automatically
+      if (currentVideoIndex === 0) {
+        video.currentTime = 0;
+        video.play().catch((error) => {
+          console.error('Auto-play failed:', error);
+        });
+      }
+    };
 
+    const handleError = (e: any) => {
+      console.error('Video error:', e, 'for video:', videos[currentVideoIndex]);
+    };
+
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('loadeddata', handleLoadedData);
+    video.addEventListener('error', handleError);
+    
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('loadeddata', handleLoadedData);
+      video.removeEventListener('error', handleError);
     };
-  }, [currentVideoIndex]);
+  }, [currentVideoIndex, videos]);
 
   return (
     <div className="min-h-screen w-full" style={{ backgroundColor: '#e0e1b9' }}>
