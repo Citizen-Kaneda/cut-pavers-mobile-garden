@@ -342,16 +342,15 @@ const MobileVideoPlayer = () => {
 
   // Get arrow position styles
   const getArrowPosition = (direction: 'up' | 'down' | 'left' | 'right') => {
-    const offset = '144px';
     switch (direction) {
       case 'up':
-        return { top: offset, left: '50%', transform: 'translateX(-50%)', rotate: '0deg' };
+        return { top: '144px', left: '50%', transform: 'translateX(-50%)', rotate: '0deg' };
       case 'down':
-        return { bottom: offset, left: '50%', transform: 'translateX(-50%)', rotate: '180deg' };
+        return { bottom: '144px', left: '50%', transform: 'translateX(-50%)', rotate: '180deg' };
       case 'left':
-        return { left: offset, top: '50%', transform: 'translateY(-50%)', rotate: '-90deg' };
+        return { left: '144px', top: '50%', transform: 'translateY(-50%)', rotate: '-90deg' };
       case 'right':
-        return { right: offset, top: '50%', transform: 'translateY(-50%)', rotate: '90deg' };
+        return { right: '144px', top: '50%', transform: 'translateY(-50%)', rotate: '90deg' };
     }
   };
 
