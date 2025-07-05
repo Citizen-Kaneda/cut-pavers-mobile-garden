@@ -13,8 +13,6 @@ const MobileVideoPlayer = () => {
   const [allVideosLoaded, setAllVideosLoaded] = useState(false);
   const [initialOrientation, setInitialOrientation] = useState<{ alpha: number; beta: number; gamma: number } | null>(null);
   const [permissionGranted, setPermissionGranted] = useState(false);
-  const [animationState, setAnimationState] = useState<'idle' | 'wooshing-in' | 'moving-together' | 'wooshing-out'>('idle');
-  const [previousVideoIndex, setPreviousVideoIndex] = useState<number | null>(null);
   
   const velocity = useRef({ x: 0, y: 0 });
   const orientationRef = useRef<{ alpha: number; beta: number; gamma: number } | null>(null);
@@ -80,62 +78,6 @@ const MobileVideoPlayer = () => {
       transitions: { beginning: 1 }
     }
   };
-
-  // Get video positioning for horizontal videos only
-  const getHorizontalVideoPosition = useCallback((videoIndex: number) => {
-    if (![1, 7, 8].includes(videoIndex)) return null;
-    
-    if (animationState === 'idle') {
-      if (videoIndex === currentVideoIndex) {
-        return { translateX: '0vw' };
-      } else if (videoIndex === 7) {
-        return { translateX: '-100vw' };
-      } else if (videoIndex === 8) {
-        return { translateX: '100vw' };
-      }
-    }
-    
-    // Handle animation states
-    if (animationState === 'wooshing-in') {
-      if (videoIndex === currentVideoIndex && videoIndex === 7) {
-        return { translateX: '-50vw' };
-      } else if (videoIndex === currentVideoIndex && videoIndex === 8) {
-        return { translateX: '50vw' };
-      } else if (videoIndex === 1 && (currentVideoIndex === 7 || currentVideoIndex === 8)) {
-        return { translateX: '0vw' };
-      } else if (videoIndex === previousVideoIndex && videoIndex === 1) {
-        const fromLeft = currentVideoIndex === 8;
-        return { translateX: fromLeft ? '-50vw' : '50vw' };
-      }
-    }
-    
-    if (animationState === 'moving-together') {
-      if (videoIndex === currentVideoIndex) {
-        return { translateX: '0vw' };
-      } else if (videoIndex === previousVideoIndex) {
-        const offset = currentVideoIndex === 7 ? '50vw' : currentVideoIndex === 8 ? '-50vw' : 
-                      previousVideoIndex === 7 ? '-50vw' : '50vw';
-        return { translateX: offset };
-      }
-    }
-    
-    if (animationState === 'wooshing-out') {
-      if (videoIndex === previousVideoIndex) {
-        const toRight = previousVideoIndex === 1 && currentVideoIndex === 7;
-        const toLeft = previousVideoIndex === 1 && currentVideoIndex === 8;
-        const toOffScreen = previousVideoIndex === 7 ? '-100vw' : previousVideoIndex === 8 ? '100vw' :
-                           toRight ? '100vw' : toLeft ? '-100vw' : '0vw';
-        return { translateX: toOffScreen };
-      } else if (videoIndex === currentVideoIndex) {
-        return { translateX: '0vw' };
-      }
-    }
-    
-    // Default positioning
-    if (videoIndex === 7) return { translateX: '-100vw' };
-    if (videoIndex === 8) return { translateX: '100vw' };
-    return { translateX: '0vw' };
-  }, [currentVideoIndex, animationState, previousVideoIndex]);
 
   // Update film strip position
   const updateFilmStripPosition = useCallback(() => {
@@ -265,8 +207,8 @@ const MobileVideoPlayer = () => {
       return;
     }
     
-    // Handle pano-1's four-directional navigation with animations
-    if (currentVideoIndex === 1 && animationState === 'idle') {
+    // Handle pano-1's four-directional navigation
+    if (currentVideoIndex === 1) {
       const pano1Transitions = videoConfig[1].transitions as { up: number; down: number; left: number; right: number };
       
       if (Math.abs(deltaY) > Math.abs(deltaX) && isValidSwipeY) {
@@ -275,17 +217,10 @@ const MobileVideoPlayer = () => {
         const targetIndex = direction ? pano1Transitions.down : pano1Transitions.up;
         setCurrentVideoIndex(targetIndex);
       } else if (Math.abs(deltaX) > Math.abs(deltaY) && isValidSwipeX) {
-        // Horizontal swipe with animation (reversed)
+        // Horizontal swipe (reversed)
         const direction = deltaX > 0 || velocity.current.x > velocityThreshold;
         const targetIndex = direction ? pano1Transitions.left : pano1Transitions.right;
-        
-        if (targetIndex === 7 || targetIndex === 8) {
-          setPreviousVideoIndex(currentVideoIndex);
-          setAnimationState('wooshing-in');
-          setCurrentVideoIndex(targetIndex);
-        } else {
-          setCurrentVideoIndex(targetIndex);
-        }
+        setCurrentVideoIndex(targetIndex);
       }
     }
     
@@ -311,18 +246,15 @@ const MobileVideoPlayer = () => {
       }
     }
     
-    // Handle pano-7 horizontal swipe back to pano-1 with animation
-    if (currentVideoIndex === 7 && isValidSwipeX && deltaX < 0 && animationState === 'idle') {
-      setPreviousVideoIndex(currentVideoIndex);
-      setAnimationState('wooshing-in');
+    // Handle pano-7 horizontal swipe back to pano-1
+    if (currentVideoIndex === 7 && isValidSwipeX && deltaX < 0) {
       setCurrentVideoIndex(1);
       return;
     }
     
-    // Handle pano-8 horizontal swipe back to pano-1 with animation
-    if (currentVideoIndex === 8 && isValidSwipeX && deltaX > 0 && animationState === 'idle') {
-      setPreviousVideoIndex(currentVideoIndex);
-      setAnimationState('wooshing-in');
+    // Handle pano-8 horizontal swipe back to pano-1
+    if (currentVideoIndex === 8 && isValidSwipeX && deltaX > 0) {
+      console.log('Pano-8 swipe right detected, returning to pano-1');
       setCurrentVideoIndex(1);
       return;
     }
@@ -364,27 +296,6 @@ const MobileVideoPlayer = () => {
       setInitialOrientation(orientationRef.current);
     }
   }, [currentVideoIndex, allVideosLoaded]);
-
-  // Handle animation sequences for horizontal transitions
-  useEffect(() => {
-    if (animationState === 'wooshing-in') {
-      const timer = setTimeout(() => {
-        setAnimationState('moving-together');
-      }, 300);
-      return () => clearTimeout(timer);
-    } else if (animationState === 'moving-together') {
-      const timer = setTimeout(() => {
-        setAnimationState('wooshing-out');
-      }, 400);
-      return () => clearTimeout(timer);
-    } else if (animationState === 'wooshing-out') {
-      const timer = setTimeout(() => {
-        setAnimationState('idle');
-        setPreviousVideoIndex(null);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [animationState]);
 
   const requestTiltPermission = useCallback(async () => {
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
@@ -522,84 +433,31 @@ const MobileVideoPlayer = () => {
             WebkitBackfaceVisibility: 'hidden'
           }}
         >
-          {videos.map((videoSrc, index) => {
-            const isHorizontalVideo = [1, 7, 8].includes(index);
-            const horizontalPosition = getHorizontalVideoPosition(index);
-            
-            if (isHorizontalVideo && horizontalPosition) {
-              // Render horizontal videos with special positioning
-              const isVisible = index === currentVideoIndex || 
-                              (animationState !== 'idle' && index === previousVideoIndex) ||
-                              index === 1; // Always keep pano-1 visible as it's the hub
-              
-              return (
-                <div 
-                  key={`horizontal-${index}`}
-                  className="w-full h-screen flex-shrink-0 absolute inset-0"
-                  style={{ 
-                    height: '100vh',
-                    transform: `translateX(${horizontalPosition.translateX}) translateY(0px)`,
-                    transition: animationState !== 'idle' ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
-                    opacity: isVisible ? 1 : 0,
-                    zIndex: index === currentVideoIndex ? 10 : 5,
-                    display: currentVideoIndex === 1 || currentVideoIndex === 7 || currentVideoIndex === 8 || 
-                             (animationState !== 'idle' && (index === previousVideoIndex || index === currentVideoIndex)) ? 'block' : 'none'
-                  }}
-                >
-                  <video
-                    ref={el => videoRefs.current[index] = el}
-                    src={videoSrc}
-                    className="w-full h-full object-contain object-top"
-                    muted
-                    playsInline
-                    preload="auto"
-                    onLoadedData={() => handleVideoLoaded(index)}
-                    onError={(e) => console.error(`Video ${index} error:`, e)}
-                    style={{ 
-                      touchAction: 'none',
-                      willChange: 'transform',
-                      transform: 'translateZ(0)',
-                      backfaceVisibility: 'hidden',
-                      WebkitBackfaceVisibility: 'hidden'
-                    }}
-                  />
-                </div>
-              );
-            } else {
-              // Render vertical videos normally in film strip
-              const isVerticalVideoVisible = ![1, 7, 8].includes(currentVideoIndex) && index === currentVideoIndex;
-              
-              return (
-                <div 
-                  key={index}
-                  className="w-full h-screen flex-shrink-0"
-                  style={{ 
-                    height: '100vh',
-                    opacity: isVerticalVideoVisible ? 1 : 0,
-                    display: isVerticalVideoVisible ? 'block' : 'none'
-                  }}
-                >
-                  <video
-                    ref={el => videoRefs.current[index] = el}
-                    src={videoSrc}
-                    className="w-full h-full object-contain object-top"
-                    muted
-                    playsInline
-                    preload="auto"
-                    onLoadedData={() => handleVideoLoaded(index)}
-                    onError={(e) => console.error(`Video ${index} error:`, e)}
-                    style={{ 
-                      touchAction: 'none',
-                      willChange: 'transform',
-                      transform: 'translateZ(0)',
-                      backfaceVisibility: 'hidden',
-                      WebkitBackfaceVisibility: 'hidden'
-                    }}
-                  />
-                </div>
-              );
-            }
-          })}
+          {videos.map((videoSrc, index) => (
+            <div 
+              key={index}
+              className="w-full h-screen flex-shrink-0"
+              style={{ height: '100vh' }}
+            >
+              <video
+                ref={el => videoRefs.current[index] = el}
+                src={videoSrc}
+                className="w-full h-full object-contain object-top"
+                muted
+                playsInline
+                preload="auto"
+                onLoadedData={() => handleVideoLoaded(index)}
+                onError={(e) => console.error(`Video ${index} error:`, e)}
+                style={{ 
+                  touchAction: 'none',
+                  willChange: 'transform',
+                  transform: 'translateZ(0)',
+                  backfaceVisibility: 'hidden',
+                  WebkitBackfaceVisibility: 'hidden'
+                }}
+              />
+            </div>
+          ))}
         </div>
         
         {/* Loading indicator */}
