@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { Smartphone } from 'lucide-react';
 
 const MobileVideoPlayer = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -258,24 +259,24 @@ const MobileVideoPlayer = () => {
     }
   }, [currentVideoIndex, allVideosLoaded]);
 
+  const requestTiltPermission = useCallback(async () => {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+      try {
+        const permission = await (DeviceOrientationEvent as any).requestPermission();
+        setPermissionGranted(permission === 'granted');
+      } catch (error) {
+        console.error('Permission request failed:', error);
+      }
+    } else {
+      // For non-iOS devices or when permission is not required
+      setPermissionGranted(true);
+    }
+  }, []);
+
   // Request device orientation permission and setup
   useEffect(() => {
-    const requestPermission = async () => {
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
-        try {
-          const permission = await (DeviceOrientationEvent as any).requestPermission();
-          setPermissionGranted(permission === 'granted');
-        } catch (error) {
-          console.error('Permission request failed:', error);
-        }
-      } else {
-        // For non-iOS devices or when permission is not required
-        setPermissionGranted(true);
-      }
-    };
-
-    requestPermission();
-  }, []);
+    requestTiltPermission();
+  }, [requestTiltPermission]);
 
   // Handle device orientation
   useEffect(() => {
@@ -364,6 +365,14 @@ const MobileVideoPlayer = () => {
 
   return (
     <div className="min-h-screen w-full" style={{ backgroundColor: '#e0e1b9' }}>
+      <style>
+        {`
+          @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+          }
+        `}
+      </style>
       <div 
         ref={containerRef}
         className="relative w-full h-screen overflow-hidden"
@@ -426,8 +435,23 @@ const MobileVideoPlayer = () => {
         {/* Video indicator */}
         <div className="absolute top-4 left-4 text-black bg-white/80 px-2 py-1 rounded text-sm">
           {currentVideoIndex + 1} / {videos.length}
-          {!permissionGranted && <div className="text-red-500 text-xs">Tilt permission needed</div>}
         </div>
+
+        {/* Tilt permission button */}
+        {!permissionGranted && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <button
+              onClick={requestTiltPermission}
+              className="bg-white text-black px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 text-lg font-medium animate-pulse hover:bg-gray-50 transition-colors"
+              style={{
+                animation: 'flash 2s infinite'
+              }}
+            >
+              <Smartphone className="w-6 h-6" />
+              Press here to enable tilt
+            </button>
+          </div>
+        )}
 
         {/* Tilt to scrub instruction */}
         {permissionGranted && initialOrientation && (
