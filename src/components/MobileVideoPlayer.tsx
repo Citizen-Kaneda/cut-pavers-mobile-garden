@@ -10,6 +10,8 @@ const MobileVideoPlayer = () => {
   const [firstVideoIntroPlayed, setFirstVideoIntroPlayed] = useState(false);
   const lastMoveTime = useRef(0);
   const animationFrame = useRef<number>();
+  const velocity = useRef({ x: 0, y: 0 });
+  const lastTouch = useRef({ x: 0, y: 0, time: 0 });
 
   const videos = [
     '/pano-0.mp4?v=3',
@@ -26,11 +28,15 @@ const MobileVideoPlayer = () => {
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     const touch = e.touches[0];
+    const now = Date.now();
+    
     setTouchStart({ 
       x: touch.clientX, 
       y: touch.clientY, 
-      time: Date.now() 
+      time: now 
     });
+    lastTouch.current = { x: touch.clientX, y: touch.clientY, time: now };
+    velocity.current = { x: 0, y: 0 };
     setIsDragging(true);
     
     // Cancel any ongoing animation
@@ -39,54 +45,69 @@ const MobileVideoPlayer = () => {
     }
   }, []);
 
-  const updateVideoTime = useCallback((deltaX: number) => {
+  const updateVideoTime = useCallback((deltaX: number, smooth = true) => {
     const video = videoRef.current;
     if (!video || !video.duration || isNaN(video.duration)) return;
     
-    // More responsive scrubbing with better sensitivity
-    const sensitivity = video.duration / (window.innerWidth * 2);
+    // Ultra responsive scrubbing
+    const sensitivity = video.duration / (window.innerWidth * 1.5);
     const timeChange = deltaX * sensitivity;
     
     // For first video, prevent scrubbing back to intro once it's been played
     const minTime = (currentVideoIndex === 0 && firstVideoIntroPlayed) ? 5 : 0;
     const newTime = Math.max(minTime, Math.min(video.duration, video.currentTime + timeChange));
     
-    video.currentTime = newTime;
+    if (smooth) {
+      // Use requestAnimationFrame for ultra-smooth updates
+      if (animationFrame.current) {
+        cancelAnimationFrame(animationFrame.current);
+      }
+      animationFrame.current = requestAnimationFrame(() => {
+        video.currentTime = newTime;
+      });
+    } else {
+      video.currentTime = newTime;
+    }
   }, [currentVideoIndex, firstVideoIntroPlayed]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (!isDragging || !videoRef.current) return;
     
-    // Prevent default scrolling behavior
+    // Prevent all scrolling and zooming
     e.preventDefault();
+    e.stopPropagation();
     
     const touch = e.touches[0];
+    const now = Date.now();
+    const deltaTime = now - lastTouch.current.time;
+    
+    // Calculate velocity for smoother interactions
+    if (deltaTime > 0) {
+      velocity.current.x = (touch.clientX - lastTouch.current.x) / deltaTime;
+      velocity.current.y = (touch.clientY - lastTouch.current.y) / deltaTime;
+    }
+    
     const deltaX = touch.clientX - touchStart.x;
     const deltaY = touch.clientY - touchStart.y;
     
-    // Throttle updates for better performance
-    const now = Date.now();
-    if (now - lastMoveTime.current < 16) return; // ~60fps
+    // Reduced throttling for ultra-smooth response
+    if (now - lastMoveTime.current < 8) return; // ~120fps
     lastMoveTime.current = now;
     
-    // Only handle horizontal scrubbing if it's clearly horizontal movement
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
-      // Use requestAnimationFrame for smooth updates
-      if (animationFrame.current) {
-        cancelAnimationFrame(animationFrame.current);
-      }
+    // Immediate horizontal scrubbing detection
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 5) {
+      const incrementalDelta = touch.clientX - lastTouch.current.x;
+      updateVideoTime(incrementalDelta);
       
-      animationFrame.current = requestAnimationFrame(() => {
-        updateVideoTime(deltaX * 0.5); // Smoother scrubbing
-      });
-      
-      // Update touch start for continuous scrubbing
+      // Update references for next frame
       setTouchStart(prev => ({ 
         ...prev, 
         x: touch.clientX, 
         y: touch.clientY 
       }));
     }
+    
+    lastTouch.current = { x: touch.clientX, y: touch.clientY, time: now };
   }, [isDragging, touchStart, updateVideoTime]);
 
   const handleTouchEnd = useCallback((e: TouchEvent) => {
@@ -102,23 +123,30 @@ const MobileVideoPlayer = () => {
       cancelAnimationFrame(animationFrame.current);
     }
     
-    // Improved gesture detection - consider velocity and distance
-    const minSwipeDistance = 80;
-    const maxSwipeTime = 500;
-    const isValidSwipe = deltaTime < maxSwipeTime && Math.abs(deltaY) > minSwipeDistance;
+    // More sensitive gesture detection with velocity consideration
+    const velocityThreshold = 0.3;
+    const minSwipeDistance = 50; // Reduced for better sensitivity
+    const maxSwipeTime = 800; // Increased for more forgiving gestures
     
-    // Vertical swipe for video cycling (only if not horizontal scrubbing)
+    const absVelocityY = Math.abs(velocity.current.y);
+    const isValidSwipe = (deltaTime < maxSwipeTime && Math.abs(deltaY) > minSwipeDistance) || 
+                        absVelocityY > velocityThreshold;
+    
+    // Vertical swipe for video cycling
     if (Math.abs(deltaY) > Math.abs(deltaX) && isValidSwipe) {
-      if (deltaY < 0 && currentVideoIndex < videos.length - 1) {
-        // Swipe up - next video
+      const direction = deltaY < 0 || velocity.current.y < -velocityThreshold;
+      
+      if (direction && currentVideoIndex < videos.length - 1) {
+        // Swipe up or fast upward velocity - next video
         setCurrentVideoIndex(prev => prev + 1);
-      } else if (deltaY > 0 && currentVideoIndex > 0) {
-        // Swipe down - previous video
+      } else if (!direction && currentVideoIndex > 0) {
+        // Swipe down or fast downward velocity - previous video
         setCurrentVideoIndex(prev => prev - 1);
       }
     }
     
     setIsDragging(false);
+    velocity.current = { x: 0, y: 0 };
   }, [isDragging, touchStart, currentVideoIndex, videos.length]);
 
   useEffect(() => {
@@ -179,6 +207,12 @@ const MobileVideoPlayer = () => {
       <div 
         ref={containerRef}
         className="relative w-full h-screen overflow-hidden"
+        style={{
+          willChange: 'transform',
+          transform: 'translateZ(0)',
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden'
+        }}
       >
         <video
           ref={videoRef}
@@ -186,7 +220,14 @@ const MobileVideoPlayer = () => {
           className="w-full h-full object-cover"
           muted
           playsInline
-          style={{ touchAction: 'none' }}
+          preload="auto"
+          style={{ 
+            touchAction: 'none',
+            willChange: 'transform',
+            transform: 'translateZ(0)',
+            backfaceVisibility: 'hidden',
+            WebkitBackfaceVisibility: 'hidden'
+          }}
         />
         
         {/* Video indicator */}
