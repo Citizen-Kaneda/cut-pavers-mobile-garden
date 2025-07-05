@@ -8,6 +8,8 @@ const MobileVideoPlayer = () => {
   const [touchStart, setTouchStart] = useState({ x: 0, y: 0, time: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [firstVideoIntroPlayed, setFirstVideoIntroPlayed] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [nextVideoIndex, setNextVideoIndex] = useState<number | null>(null);
   const lastMoveTime = useRef(0);
   const animationFrame = useRef<number>();
   const velocity = useRef({ x: 0, y: 0 });
@@ -138,10 +140,22 @@ const MobileVideoPlayer = () => {
       
       if (direction && currentVideoIndex < videos.length - 1) {
         // Swipe up or fast upward velocity - next video
-        setCurrentVideoIndex(prev => prev + 1);
+        setIsTransitioning(true);
+        setNextVideoIndex(currentVideoIndex + 1);
+        setTimeout(() => {
+          setCurrentVideoIndex(currentVideoIndex + 1);
+          setIsTransitioning(false);
+          setNextVideoIndex(null);
+        }, 300);
       } else if (!direction && currentVideoIndex > 0) {
         // Swipe down or fast downward velocity - previous video
-        setCurrentVideoIndex(prev => prev - 1);
+        setIsTransitioning(true);
+        setNextVideoIndex(currentVideoIndex - 1);
+        setTimeout(() => {
+          setCurrentVideoIndex(currentVideoIndex - 1);
+          setIsTransitioning(false);
+          setNextVideoIndex(null);
+        }, 300);
       }
     }
     
@@ -214,10 +228,18 @@ const MobileVideoPlayer = () => {
           WebkitBackfaceVisibility: 'hidden'
         }}
       >
+        {/* Current video */}
         <video
           ref={videoRef}
           src={videos[currentVideoIndex]}
-          className="w-full h-full object-contain object-top"
+          className={cn(
+            "w-full h-full object-contain object-top absolute inset-0 transition-transform duration-300 ease-out",
+            isTransitioning && nextVideoIndex !== null && nextVideoIndex > currentVideoIndex 
+              ? "-translate-y-full" 
+              : isTransitioning && nextVideoIndex !== null && nextVideoIndex < currentVideoIndex
+              ? "translate-y-full"
+              : "translate-y-0"
+          )}
           muted
           playsInline
           preload="auto"
@@ -229,6 +251,28 @@ const MobileVideoPlayer = () => {
             WebkitBackfaceVisibility: 'hidden'
           }}
         />
+        
+        {/* Next video during transition */}
+        {isTransitioning && nextVideoIndex !== null && (
+          <video
+            src={videos[nextVideoIndex]}
+            className={cn(
+              "w-full h-full object-contain object-top absolute inset-0 transition-transform duration-300 ease-out",
+              nextVideoIndex > currentVideoIndex 
+                ? "translate-y-full" 
+                : "-translate-y-full"
+            )}
+            muted
+            playsInline
+            preload="auto"
+            style={{ 
+              touchAction: 'none',
+              willChange: 'transform',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden'
+            }}
+          />
+        )}
         
         {/* Video indicator */}
         <div className="absolute top-4 left-4 text-black bg-white/80 px-2 py-1 rounded text-sm">
