@@ -10,10 +10,6 @@ const MobileVideoPlayer = () => {
   const [firstVideoIntroPlayed, setFirstVideoIntroPlayed] = useState(false);
   const [loadedVideos, setLoadedVideos] = useState<Set<number>>(new Set());
   const [allVideosLoaded, setAllVideosLoaded] = useState(false);
-  const [currentKeyframe, setCurrentKeyframe] = useState(0);
-  
-  // Keyframes between 5-7 seconds for pano-0
-  const keyframes = [5.0, 5.5, 6.0, 6.5, 7.0];
   
   const lastMoveTime = useRef(0);
   const velocity = useRef({ x: 0, y: 0 });
@@ -66,20 +62,10 @@ const MobileVideoPlayer = () => {
     const timeChange = deltaX * sensitivity;
     
     const minTime = (currentVideoIndex === 0 && firstVideoIntroPlayed) ? 5 : 0;
-    let newTime = Math.max(minTime, Math.min(video.duration, video.currentTime + timeChange));
-    
-    // Snap to keyframes for pano-0 between 5-7 seconds
-    if (currentVideoIndex === 0 && newTime >= 5 && newTime <= 7) {
-      const closestKeyframe = keyframes.reduce((prev, curr) => 
-        Math.abs(curr - newTime) < Math.abs(prev - newTime) ? curr : prev
-      );
-      if (Math.abs(closestKeyframe - newTime) < 0.3) {
-        newTime = closestKeyframe;
-      }
-    }
+    const newTime = Math.max(minTime, Math.min(video.duration, video.currentTime + timeChange));
     
     video.currentTime = newTime;
-  }, [currentVideoIndex, firstVideoIntroPlayed, keyframes]);
+  }, [currentVideoIndex, firstVideoIntroPlayed]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (!isDragging || !allVideosLoaded) return;
@@ -181,7 +167,7 @@ const MobileVideoPlayer = () => {
     const firstVideo = videoRefs.current[0];
     if (firstVideo && currentVideoIndex === 0) {
       const handleTimeUpdate = () => {
-        if (firstVideo.currentTime >= 5 && !firstVideoIntroPlayed) {
+        if (firstVideo.currentTime >= 5) {
           firstVideo.pause();
           setFirstVideoIntroPlayed(true);
         }
@@ -195,7 +181,7 @@ const MobileVideoPlayer = () => {
         firstVideo.removeEventListener('timeupdate', handleTimeUpdate);
       };
     }
-  }, [allVideosLoaded, currentVideoIndex, firstVideoIntroPlayed]);
+  }, [allVideosLoaded, currentVideoIndex]);
 
   return (
     <div className="min-h-screen w-full" style={{ backgroundColor: '#e0e1b9' }}>
