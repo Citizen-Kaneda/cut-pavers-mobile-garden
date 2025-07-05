@@ -10,6 +10,7 @@ const MobileVideoPlayer = () => {
   const [firstVideoIntroPlayed, setFirstVideoIntroPlayed] = useState(false);
   const [loadedVideos, setLoadedVideos] = useState<Set<number>>(new Set());
   const [allVideosLoaded, setAllVideosLoaded] = useState(false);
+  const [boundaryHit, setBoundaryHit] = useState<{ direction: 'up' | 'down' | 'left' | 'right' | null; targetIndex: number | null }>({ direction: null, targetIndex: null });
   
   const lastMoveTime = useRef(0);
   const velocity = useRef({ x: 0, y: 0 });
@@ -110,9 +111,20 @@ const MobileVideoPlayer = () => {
     // Check if at beginning and should transition
     if (currentTime <= threshold && 'beginning' in config.transitions && config.transitions.beginning !== undefined) {
       const targetVideoIndex = config.transitions.beginning;
+      
+      // If this is the first approach to boundary, bounce back and show prompt
+      if (boundaryHit.direction !== 'up' || boundaryHit.targetIndex !== targetVideoIndex) {
+        video.currentTime = Math.min(video.duration, currentTime + 0.2); // Bounce back 2 frames
+        video.pause();
+        setBoundaryHit({ direction: 'up', targetIndex: targetVideoIndex });
+        return;
+      }
+      
+      // Second approach - make the transition
       const targetVideo = videoRefs.current[targetVideoIndex];
       if (targetVideo) {
         setCurrentVideoIndex(targetVideoIndex);
+        setBoundaryHit({ direction: null, targetIndex: null });
         // Set target video to appropriate position
         const targetConfig = videoConfig[targetVideoIndex as keyof typeof videoConfig];
         if (targetConfig.startPosition === 'end') {
@@ -126,9 +138,20 @@ const MobileVideoPlayer = () => {
     // Check if at end and should transition
     if (currentTime >= video.duration - threshold && 'end' in config.transitions && config.transitions.end !== undefined) {
       const targetVideoIndex = config.transitions.end;
+      
+      // If this is the first approach to boundary, bounce back and show prompt
+      if (boundaryHit.direction !== 'down' || boundaryHit.targetIndex !== targetVideoIndex) {
+        video.currentTime = Math.max(0, currentTime - 0.2); // Bounce back 2 frames
+        video.pause();
+        setBoundaryHit({ direction: 'down', targetIndex: targetVideoIndex });
+        return;
+      }
+      
+      // Second approach - make the transition
       const targetVideo = videoRefs.current[targetVideoIndex];
       if (targetVideo) {
         setCurrentVideoIndex(targetVideoIndex);
+        setBoundaryHit({ direction: null, targetIndex: null });
         // Set target video to appropriate position
         const targetConfig = videoConfig[targetVideoIndex as keyof typeof videoConfig];
         if (targetConfig.startPosition === 'middle') {
@@ -138,7 +161,7 @@ const MobileVideoPlayer = () => {
         }
       }
     }
-  }, [currentVideoIndex]);
+  }, [currentVideoIndex, boundaryHit]);
 
   const updateVideoTime = useCallback((delta: number, isVertical: boolean = false) => {
     const video = videoRefs.current[currentVideoIndex];
@@ -227,20 +250,59 @@ const MobileVideoPlayer = () => {
     const isValidSwipeY = (deltaTime < maxSwipeTime && Math.abs(deltaY) > minSwipeDistance) || 
                           absVelocityY > velocityThreshold;
     
-    // Handle pano-1's four-directional navigation
-    if (currentVideoIndex === 1) {
-      const pano1Transitions = videoConfig[1].transitions as { up: number; down: number; left: number; right: number };
+    // Handle navigation based on swipe direction
+    if (Math.abs(deltaY) > Math.abs(deltaX) && isValidSwipeY) {
+      // Vertical swipe
+      const direction = deltaY < 0 || velocity.current.y < -velocityThreshold; // up = true, down = false
       
-      if (Math.abs(deltaY) > Math.abs(deltaX) && isValidSwipeY) {
-        // Vertical swipe
-        const direction = deltaY < 0 || velocity.current.y < -velocityThreshold;
+      if (currentVideoIndex === 1) {
+        // Special case for pano-1 with four-directional navigation
+        const pano1Transitions = videoConfig[1].transitions as { up: number; down: number; left: number; right: number };
         const targetIndex = direction ? pano1Transitions.up : pano1Transitions.down;
+        
+        if (boundaryHit.direction === (direction ? 'up' : 'down') && boundaryHit.targetIndex === targetIndex) {
+          // Second swipe in same direction - make transition
+          setCurrentVideoIndex(targetIndex);
+          setBoundaryHit({ direction: null, targetIndex: null });
+        } else {
+          // First swipe - show prompt
+          setBoundaryHit({ direction: direction ? 'up' : 'down', targetIndex });
+        }
+      } else {
+        // Standard vertical navigation: up = previous pano, down = next pano
+        if (direction && currentVideoIndex > 0) {
+          // Swiping up - go to previous pano
+          const targetIndex = currentVideoIndex - 1;
+          if (boundaryHit.direction === 'up' && boundaryHit.targetIndex === targetIndex) {
+            setCurrentVideoIndex(targetIndex);
+            setBoundaryHit({ direction: null, targetIndex: null });
+          } else {
+            setBoundaryHit({ direction: 'up', targetIndex });
+          }
+        } else if (!direction && currentVideoIndex < videos.length - 1) {
+          // Swiping down - go to next pano
+          const targetIndex = currentVideoIndex + 1;
+          if (boundaryHit.direction === 'down' && boundaryHit.targetIndex === targetIndex) {
+            setCurrentVideoIndex(targetIndex);
+            setBoundaryHit({ direction: null, targetIndex: null });
+          } else {
+            setBoundaryHit({ direction: 'down', targetIndex });
+          }
+        }
+      }
+    } else if (Math.abs(deltaX) > Math.abs(deltaY) && isValidSwipeX && currentVideoIndex === 1) {
+      // Horizontal swipe only for pano-1
+      const direction = deltaX > 0 || velocity.current.x > velocityThreshold; // right = true, left = false
+      const pano1Transitions = videoConfig[1].transitions as { up: number; down: number; left: number; right: number };
+      const targetIndex = direction ? pano1Transitions.right : pano1Transitions.left;
+      
+      if (boundaryHit.direction === (direction ? 'right' : 'left') && boundaryHit.targetIndex === targetIndex) {
+        // Second swipe in same direction - make transition
         setCurrentVideoIndex(targetIndex);
-      } else if (Math.abs(deltaX) > Math.abs(deltaY) && isValidSwipeX) {
-        // Horizontal swipe
-        const direction = deltaX > 0 || velocity.current.x > velocityThreshold;
-        const targetIndex = direction ? pano1Transitions.right : pano1Transitions.left;
-        setCurrentVideoIndex(targetIndex);
+        setBoundaryHit({ direction: null, targetIndex: null });
+      } else {
+        // First swipe - show prompt
+        setBoundaryHit({ direction: direction ? 'right' : 'left', targetIndex });
       }
     }
     
@@ -373,6 +435,24 @@ const MobileVideoPlayer = () => {
             <div className="text-center">
               <div className="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto mb-2"></div>
               <p>Loading videos... ({loadedVideos.size}/{videos.length})</p>
+            </div>
+          </div>
+        )}
+        
+        {/* Boundary hit arrow prompt */}
+        {boundaryHit.direction && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div 
+              className="text-white animate-pulse"
+              style={{
+                fontSize: boundaryHit.direction === 'up' || boundaryHit.direction === 'down' ? '99px' : '33px',
+                lineHeight: '1',
+                transform: boundaryHit.direction === 'up' ? 'rotate(0deg)' : 
+                          boundaryHit.direction === 'down' ? 'rotate(180deg)' :
+                          boundaryHit.direction === 'left' ? 'rotate(-90deg)' : 'rotate(90deg)'
+              }}
+            >
+              ▲
             </div>
           </div>
         )}
