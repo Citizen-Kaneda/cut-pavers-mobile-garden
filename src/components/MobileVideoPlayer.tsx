@@ -89,9 +89,9 @@ const MobileVideoPlayer = () => {
         const translateY = -100; // Position at pano-1's vertical level
         filmStripRef.current.style.transform = `translateY(${translateY}vh) translateX(${translateX}vw)`;
       } else {
-        // Normal vertical positioning for other videos
+        // Normal vertical positioning for other videos, reset horizontal position
         const translateY = -currentVideoIndex * 100;
-        filmStripRef.current.style.transform = `translateY(${translateY}vh)`;
+        filmStripRef.current.style.transform = `translateY(${translateY}vh) translateX(0vw)`;
       }
     }
   }, [currentVideoIndex]);
