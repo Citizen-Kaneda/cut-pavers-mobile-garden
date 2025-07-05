@@ -181,26 +181,9 @@ const MobileVideoPlayer = () => {
     const firstVideo = videoRefs.current[0];
     if (firstVideo && currentVideoIndex === 0) {
       const handleTimeUpdate = () => {
-        const currentTime = firstVideo.currentTime;
-        
-        // Check if we've reached a keyframe
-        const nextKeyframe = keyframes.find(kf => kf > currentTime && Math.abs(kf - currentTime) < 0.1);
-        if (nextKeyframe) {
+        if (firstVideo.currentTime >= 5 && !firstVideoIntroPlayed) {
           firstVideo.pause();
-          firstVideo.currentTime = nextKeyframe;
-          setCurrentKeyframe(keyframes.indexOf(nextKeyframe));
-          
-          // Auto-resume after 1 second at each keyframe, except the last one
-          if (nextKeyframe < 7.0) {
-            setTimeout(() => {
-              if (firstVideo.paused) {
-                firstVideo.play().catch(console.error);
-              }
-            }, 1000);
-          } else {
-            // At the final keyframe, mark intro as played
-            setFirstVideoIntroPlayed(true);
-          }
+          setFirstVideoIntroPlayed(true);
         }
       };
 
@@ -212,7 +195,7 @@ const MobileVideoPlayer = () => {
         firstVideo.removeEventListener('timeupdate', handleTimeUpdate);
       };
     }
-  }, [allVideosLoaded, currentVideoIndex, keyframes]);
+  }, [allVideosLoaded, currentVideoIndex, firstVideoIntroPlayed]);
 
   return (
     <div className="min-h-screen w-full" style={{ backgroundColor: '#e0e1b9' }}>
