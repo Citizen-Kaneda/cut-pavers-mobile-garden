@@ -69,12 +69,12 @@ const MobileVideoPlayer = () => {
     7: { 
       scrubDirection: 'horizontal', 
       startPosition: 'beginning',
-      transitions: { beginning: 1 }
+      transitions: { right: 1 }
     },
     8: { 
       scrubDirection: 'horizontal', 
-      startPosition: 'end',
-      transitions: { beginning: 1 }
+      startPosition: 'middle',
+      transitions: { left: 1 }
     }
   };
 
@@ -231,34 +231,60 @@ const MobileVideoPlayer = () => {
     const config = videoConfig[currentVideoIndex as keyof typeof videoConfig];
     let targetIndex: number | undefined;
     
+    // Check specific transitions for each video
     switch (direction) {
       case 'up':
-        if (currentVideoIndex === 1) {
-          targetIndex = (config.transitions as any).up;
-        } else if (currentVideoIndex > 0) {
-          targetIndex = currentVideoIndex - 1;
-        }
+        targetIndex = (config.transitions as any).up;
         break;
       case 'down':
-        if (currentVideoIndex === 1) {
-          targetIndex = (config.transitions as any).down;
-        } else if (currentVideoIndex < videos.length - 1) {
-          targetIndex = currentVideoIndex + 1;
-        }
+        targetIndex = (config.transitions as any).down;
         break;
       case 'left':
-        if (currentVideoIndex === 1) {
-          targetIndex = (config.transitions as any).left;
-        }
+        targetIndex = (config.transitions as any).left;
         break;
       case 'right':
-        if (currentVideoIndex === 1) {
-          targetIndex = (config.transitions as any).right;
-        }
+        targetIndex = (config.transitions as any).right;
         break;
     }
     
     if (targetIndex !== undefined) {
+      // Add swooping animation for horizontal transitions
+      if ((currentVideoIndex === 1 && (targetIndex === 7 || targetIndex === 8)) || 
+          (currentVideoIndex === 7 && targetIndex === 1) || 
+          (currentVideoIndex === 8 && targetIndex === 1)) {
+        
+        if (filmStripRef.current) {
+          const isMovingRight = (currentVideoIndex === 1 && targetIndex === 8) || (currentVideoIndex === 7 && targetIndex === 1);
+          const translateX = isMovingRight ? '100vw' : '-100vw';
+          const targetTranslateY = -targetIndex * 100;
+          
+          // First, swoop horizontally
+          filmStripRef.current.style.transition = 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+          filmStripRef.current.style.transform = `translateY(${-currentVideoIndex * 100}vh) translateX(${translateX})`;
+          
+          setTimeout(() => {
+            if (filmStripRef.current) {
+              // Then move to target position
+              filmStripRef.current.style.transform = `translateY(${targetTranslateY}vh) translateX(${translateX})`;
+              
+              setTimeout(() => {
+                if (filmStripRef.current) {
+                  // Finally, slide back to center
+                  filmStripRef.current.style.transform = `translateY(${targetTranslateY}vh) translateX(0)`;
+                  
+                  setTimeout(() => {
+                    if (filmStripRef.current) {
+                      // Reset transition for normal operation
+                      filmStripRef.current.style.transition = 'transform 0.3s ease-out';
+                    }
+                  }, 400);
+                }
+              }, 100);
+            }
+          }, 200);
+        }
+      }
+      
       setCurrentVideoIndex(targetIndex);
       setBoundaryHit({ direction: null, targetIndex: null });
       
