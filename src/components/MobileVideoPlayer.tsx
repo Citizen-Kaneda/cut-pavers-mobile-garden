@@ -226,15 +226,15 @@ const MobileVideoPlayer = () => {
     if (currentVideoIndex !== 0 && currentVideoIndex !== 1 && currentVideoIndex !== 7 && currentVideoIndex !== 8) {
       if (config.scrubDirection === 'vertical' && isValidSwipeY) {
         if (deltaY < 0) {
-          // Swipe up - check if we have a 'beginning' transition
-          if (transitions.beginning !== undefined) {
-            setCurrentVideoIndex(transitions.beginning);
+          // Swipe up - check if we have an 'end' transition (reversed)
+          if (transitions.end !== undefined) {
+            setCurrentVideoIndex(transitions.end);
             return;
           }
         } else {
-          // Swipe down - check if we have an 'end' transition  
-          if (transitions.end !== undefined) {
-            setCurrentVideoIndex(transitions.end);
+          // Swipe down - check if we have a 'beginning' transition (reversed)
+          if (transitions.beginning !== undefined) {
+            setCurrentVideoIndex(transitions.beginning);
             return;
           }
         }
