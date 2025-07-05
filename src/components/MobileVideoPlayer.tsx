@@ -9,7 +9,7 @@ const MobileVideoPlayer = () => {
   const [isDragging, setIsDragging] = useState(false);
 
   const videos = [
-    '/pano-2.mp4',
+    '/pano-2.mp4', // Starting with available videos (pano-0 and pano-1 not found in public folder)
     '/pano-3.mp4', 
     '/pano-4.mp4',
     '/pano-5.mp4',
@@ -23,6 +23,7 @@ const MobileVideoPlayer = () => {
     const touch = e.touches[0];
     setTouchStart({ x: touch.clientX, y: touch.clientY });
     setIsDragging(true);
+    console.log('Touch start:', touch.clientX, touch.clientY);
   }, []);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
@@ -38,10 +39,15 @@ const MobileVideoPlayer = () => {
     // Horizontal swipe for timeline scrubbing
     if (Math.abs(deltaX) > Math.abs(deltaY)) {
       const video = videoRef.current;
-      const sensitivity = 0.01;
-      const timeChange = deltaX * sensitivity;
-      const newTime = Math.max(0, Math.min(video.duration, video.currentTime + timeChange));
-      video.currentTime = newTime;
+      if (video.duration && !isNaN(video.duration)) {
+        const sensitivity = video.duration / window.innerWidth; // More responsive scrubbing
+        const timeChange = deltaX * sensitivity;
+        const newTime = Math.max(0, Math.min(video.duration, video.currentTime + timeChange));
+        video.currentTime = newTime;
+        console.log('Scrubbing to:', newTime, 'delta:', deltaX);
+      }
+      // Update touch start for continuous scrubbing
+      setTouchStart({ x: touch.clientX, y: touch.clientY });
     }
   }, [isDragging, touchStart]);
 
@@ -52,14 +58,18 @@ const MobileVideoPlayer = () => {
     const deltaX = touch.clientX - touchStart.x;
     const deltaY = touch.clientY - touchStart.y;
     
-    // Vertical swipe for video cycling
+    console.log('Touch end - deltaX:', deltaX, 'deltaY:', deltaY);
+    
+    // Vertical swipe for video cycling (only if not scrubbing)
     if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 50) {
       if (deltaY < 0 && currentVideoIndex < videos.length - 1) {
         // Swipe up - next video
         setCurrentVideoIndex(prev => prev + 1);
+        console.log('Next video');
       } else if (deltaY > 0 && currentVideoIndex > 0) {
         // Swipe down - previous video
         setCurrentVideoIndex(prev => prev - 1);
+        console.log('Previous video');
       }
     }
     
