@@ -145,6 +145,11 @@ const MobileVideoPlayer = () => {
     const video = videoRefs.current[currentVideoIndex];
     if (!video || !video.duration || isNaN(video.duration)) return;
     
+    // Prevent tilt scrubbing during pano-0 intro (first 5 seconds)
+    if (currentVideoIndex === 0 && !firstVideoIntroPlayed) {
+      return;
+    }
+    
     const config = videoConfig[currentVideoIndex as keyof typeof videoConfig];
     const isCorrectDirection = (config.scrubDirection === 'vertical') === isVertical;
     if (!isCorrectDirection) return;
