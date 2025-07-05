@@ -68,7 +68,7 @@ const MobileVideoPlayer = () => {
     },
     7: { 
       scrubDirection: 'horizontal', 
-      startPosition: 'beginning',
+      startPosition: 0.067, // Skip first 2 frames
       transitions: { right: 1 }
     },
     8: { 
@@ -301,6 +301,8 @@ const MobileVideoPlayer = () => {
           targetVideo.currentTime = targetVideo.duration / 2;
         } else if (targetConfig.startPosition === 'end') {
           targetVideo.currentTime = targetVideo.duration - 0.1;
+        } else if (typeof targetConfig.startPosition === 'number') {
+          targetVideo.currentTime = targetConfig.startPosition;
         } else {
           targetVideo.currentTime = 0;
         }
@@ -387,6 +389,8 @@ const MobileVideoPlayer = () => {
       video.currentTime = video.duration / 2;
     } else if (config.startPosition === 'end') {
       video.currentTime = video.duration - 0.1;
+    } else if (typeof config.startPosition === 'number') {
+      video.currentTime = config.startPosition;
     } else {
       video.currentTime = 0;
     }
