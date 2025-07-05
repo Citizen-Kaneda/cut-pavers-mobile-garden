@@ -118,7 +118,7 @@ const MobileVideoPlayer = () => {
   }, [currentVideoIndex]);
 
   return (
-    <div className="min-h-screen w-full" style={{ backgroundColor: '#f4d03f' }}>
+    <div className="min-h-screen w-full" style={{ backgroundColor: '#e0e1b9' }}>
       <div 
         ref={containerRef}
         className="relative w-full h-screen overflow-hidden"
