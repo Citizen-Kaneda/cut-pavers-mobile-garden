@@ -476,7 +476,7 @@ const MobileVideoPlayer = () => {
         </div>
 
         {/* Tilt permission button */}
-        {!permissionGranted && (
+        {!permissionGranted && firstVideoIntroPlayed && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/30">
             <button
               onClick={requestTiltPermission}
