@@ -5,9 +5,11 @@ const MobileVideoPlayer = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
-  const [touchStart, setTouchStart] = useState({ x: 0, y: 0 });
+  const [touchStart, setTouchStart] = useState({ x: 0, y: 0, time: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [firstVideoIntroPlayed, setFirstVideoIntroPlayed] = useState(false);
+  const lastMoveTime = useRef(0);
+  const animationFrame = useRef<number>();
 
   const videos = [
     '/pano-0.mp4?v=3',
@@ -24,39 +26,68 @@ const MobileVideoPlayer = () => {
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     const touch = e.touches[0];
-    setTouchStart({ x: touch.clientX, y: touch.clientY });
+    setTouchStart({ 
+      x: touch.clientX, 
+      y: touch.clientY, 
+      time: Date.now() 
+    });
     setIsDragging(true);
-    console.log('Touch start:', touch.clientX, touch.clientY);
+    
+    // Cancel any ongoing animation
+    if (animationFrame.current) {
+      cancelAnimationFrame(animationFrame.current);
+    }
   }, []);
+
+  const updateVideoTime = useCallback((deltaX: number) => {
+    const video = videoRef.current;
+    if (!video || !video.duration || isNaN(video.duration)) return;
+    
+    // More responsive scrubbing with better sensitivity
+    const sensitivity = video.duration / (window.innerWidth * 2);
+    const timeChange = deltaX * sensitivity;
+    
+    // For first video, prevent scrubbing back to intro once it's been played
+    const minTime = (currentVideoIndex === 0 && firstVideoIntroPlayed) ? 5 : 0;
+    const newTime = Math.max(minTime, Math.min(video.duration, video.currentTime + timeChange));
+    
+    video.currentTime = newTime;
+  }, [currentVideoIndex, firstVideoIntroPlayed]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (!isDragging || !videoRef.current) return;
+    
+    // Prevent default scrolling behavior
+    e.preventDefault();
     
     const touch = e.touches[0];
     const deltaX = touch.clientX - touchStart.x;
     const deltaY = touch.clientY - touchStart.y;
     
-    // Prevent default scrolling
-    e.preventDefault();
+    // Throttle updates for better performance
+    const now = Date.now();
+    if (now - lastMoveTime.current < 16) return; // ~60fps
+    lastMoveTime.current = now;
     
-    // Horizontal swipe for timeline scrubbing
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      const video = videoRef.current;
-      if (video.duration && !isNaN(video.duration)) {
-        const sensitivity = video.duration / window.innerWidth; // More responsive scrubbing
-        const timeChange = deltaX * sensitivity;
-        
-        // For first video, prevent scrubbing back to intro once it's been played
-        const minTime = (currentVideoIndex === 0 && firstVideoIntroPlayed) ? 5 : 0;
-        const newTime = Math.max(minTime, Math.min(video.duration, video.currentTime + timeChange));
-        
-        video.currentTime = newTime;
-        console.log('Scrubbing to:', newTime, 'delta:', deltaX);
+    // Only handle horizontal scrubbing if it's clearly horizontal movement
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
+      // Use requestAnimationFrame for smooth updates
+      if (animationFrame.current) {
+        cancelAnimationFrame(animationFrame.current);
       }
+      
+      animationFrame.current = requestAnimationFrame(() => {
+        updateVideoTime(deltaX * 0.5); // Smoother scrubbing
+      });
+      
       // Update touch start for continuous scrubbing
-      setTouchStart({ x: touch.clientX, y: touch.clientY });
+      setTouchStart(prev => ({ 
+        ...prev, 
+        x: touch.clientX, 
+        y: touch.clientY 
+      }));
     }
-  }, [isDragging, touchStart, currentVideoIndex, firstVideoIntroPlayed]);
+  }, [isDragging, touchStart, updateVideoTime]);
 
   const handleTouchEnd = useCallback((e: TouchEvent) => {
     if (!isDragging) return;
@@ -64,19 +95,26 @@ const MobileVideoPlayer = () => {
     const touch = e.changedTouches[0];
     const deltaX = touch.clientX - touchStart.x;
     const deltaY = touch.clientY - touchStart.y;
+    const deltaTime = Date.now() - touchStart.time;
     
-    console.log('Touch end - deltaX:', deltaX, 'deltaY:', deltaY);
+    // Clean up animation frame
+    if (animationFrame.current) {
+      cancelAnimationFrame(animationFrame.current);
+    }
     
-    // Vertical swipe for video cycling (only if not scrubbing)
-    if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 50) {
+    // Improved gesture detection - consider velocity and distance
+    const minSwipeDistance = 80;
+    const maxSwipeTime = 500;
+    const isValidSwipe = deltaTime < maxSwipeTime && Math.abs(deltaY) > minSwipeDistance;
+    
+    // Vertical swipe for video cycling (only if not horizontal scrubbing)
+    if (Math.abs(deltaY) > Math.abs(deltaX) && isValidSwipe) {
       if (deltaY < 0 && currentVideoIndex < videos.length - 1) {
         // Swipe up - next video
         setCurrentVideoIndex(prev => prev + 1);
-        console.log('Next video');
       } else if (deltaY > 0 && currentVideoIndex > 0) {
         // Swipe down - previous video
         setCurrentVideoIndex(prev => prev - 1);
-        console.log('Previous video');
       }
     }
     
