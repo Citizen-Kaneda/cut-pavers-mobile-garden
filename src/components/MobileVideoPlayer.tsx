@@ -278,7 +278,12 @@ const MobileVideoPlayer = () => {
     } else if (config.startPosition === 'end') {
       video.currentTime = video.duration - 0.1;
     } else {
-      video.currentTime = 0;
+      // For pano-0, if intro has been played, start at 5 seconds
+      if (currentVideoIndex === 0 && firstVideoIntroPlayed) {
+        video.currentTime = 5;
+      } else {
+        video.currentTime = 0;
+      }
     }
 
     // Reset orientation calibration when switching videos
