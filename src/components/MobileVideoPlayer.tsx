@@ -220,14 +220,14 @@ const MobileVideoPlayer = () => {
     }
     
     // Handle pano-7 horizontal swipe back to pano-1
-    if (currentVideoIndex === 7 && isValidSwipeX && deltaX > 0) {
+    if (currentVideoIndex === 7 && isValidSwipeX && deltaX < 0) {
       setCurrentVideoIndex(1);
       return;
     }
     
     // Handle pano-8 horizontal swipe back to pano-1
-    if (currentVideoIndex === 8 && isValidSwipeX && deltaX < 0) {
-      console.log('Pano-8 swipe left detected, returning to pano-1');
+    if (currentVideoIndex === 8 && isValidSwipeX && deltaX > 0) {
+      console.log('Pano-8 swipe right detected, returning to pano-1');
       setCurrentVideoIndex(1);
       return;
     }
