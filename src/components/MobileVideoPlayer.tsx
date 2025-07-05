@@ -16,15 +16,16 @@ const MobileVideoPlayer = () => {
   const lastTouch = useRef({ x: 0, y: 0, time: 0 });
 
   const videos = [
-    '/pano-0.mp4?v=' + Date.now(),
-    '/pano-1.mp4?v=' + Date.now(),
-    '/pano-2.mp4?v=' + Date.now(),
-    '/pano-3.mp4?v=' + Date.now(), 
-    '/pano-4.mp4?v=' + Date.now(),
-    '/pano-5.mp4?v=' + Date.now(),
-    '/pano-6.mp4?v=' + Date.now(),
-    '/pano-7.mp4?v=' + Date.now(),
-    '/pano-8.mp4?v=' + Date.now()
+    '/pano-0.mp4?v=3',
+    '/pano-1.mp4?v=3',
+    '/pano-2.mp4?v=3',
+    '/pano-3.mp4?v=3', 
+    '/pano-4.mp4?v=3',
+    '/pano-5.mp4?v=3',
+    '/pano-6.mp4?v=3',
+    '/pano-7.mp4?v=3',
+    '/pano-8.mp4?v=3',
+    '/pano-9.mp4?v=3'
   ];
 
   // Update film strip position
